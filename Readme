@@ -1,0 +1,37 @@
+Usage instructions:
+	1. type "make" or "make all"	
+	2. Run using "./tigerc <file_name>
+
+Using make should recompile the compiler and the assosicated grammar.
+
+I also included a small script that I used to test your test cases against my
+compiler you can run with ./testAll.sh
+
+Test test49.tig is supposed to fail because it has a syntax error I think.
+
+I precompiled goyacc and included it within tools folder and the makefile uses it as well.
+I included goyaccs source code in the vendor folder as well.
+
+Thank you!
+
+External Dependencies: (Mostly for links, you shouldnt have to install these!)
+	Lexical analysis framework for Go - github.com/timtadh/lexmachine
+
+Design Decisions:
+	Design wise, I had to restructure how the lexer worked. In the previous program since
+	we did the lexer first and I hadn't considered how it would interface with the parser.
+	In traditional implementations of compiler compilers the lexer and parsers are done in some combined way
+	simultaneously. This is especially noticeable when using a yacc variant, as the 
+	generated code creates a yyParse function which invokes the lexer if it adheres to 
+	some specific function definitions that define how a token is returned/interpreted. In this sense,
+	I removed the original loop which lexed the source text and adhered to goyaccs preferred method of
+	lexing by creating the Lex function. This would allow me to send tokens into the parser right after
+	invoking a special action created through the Lexer. These special action functions are how I keep
+	track of line numbers for syntax errors. I also added special seperate expressions to the lexer
+	to differentiate between multiline and single line comments. Where multiline comments would 
+	increment the line number and single line comments wouldn't but the new line would be 
+	automatically picked up by a seperate expression seeking only new line characters.
+	Overall this method works most of the time but the line number can be wrong sometimes I believe
+	if a multiline comment spans more than 1 line. This was a fairly challenging project, but I feel
+	like a learned a ton tinkering with all the tools and after getting it to finally work it was
+	awesome to see it in action.
