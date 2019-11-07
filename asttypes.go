@@ -92,33 +92,48 @@ func resolveOp(opType Op) string {
 }
 
 type Negation struct {
-    exp *Node
+    Exp *Node
 }
 
 func NewNegation(exp *Node) *Negation {
     return &Negation{
-        exp: exp,
+        Exp: exp,
     }
 }
 
 func (ne *Negation) visit() string {
-    return fmt.Sprintf("(NEG %v)", string(ne.exp.visit()))
+    var str string
+    if(ne.Exp == nil) {
+        fmt.Println("Exp is null")
+        str = string(ne.Exp.Token.Lexeme)
+    } else {
+        str = fmt.Sprintf("(NEG %v)", ne.Exp.visit())
+    }
+    return str
 }
 
 type SeqExpression struct {
-    Exps []*Node
+    Exps []Node
 }
 
 func NewSeqExpression(expressions []*Node) *SeqExpression {
+    var copiedExpressionContents []Node
+    for _, e := range expressions {
+        copiedExpressionContents = append(copiedExpressionContents, *e)
+    }
     return &SeqExpression{
-        Exps: expressions,
+        Exps: copiedExpressionContents,
     }
 }
 
 func (se *SeqExpression) visit() string {
     str := "(seqexp "
     for _, n := range se.Exps {
-        str += fmt.Sprintf("\n%v ", n.Exp)
+        if(n.Exp == nil) {
+            str += string(n.Token.Lexeme)
+        } else {
+            str += fmt.Sprintf("\n%v ", n.Exp.visit())
+        }
     }
 
     str += "\n)"
@@ -137,5 +152,40 @@ func NewStringLiteral(s string) *StringLiteral {
 
 func (sl *StringLiteral) visit() string {
     str := fmt.Sprintf("(strlit %s)", sl.str)
+    return str
+}
+
+type Nil struct {}
+
+func NewNil() *Nil {
+    return &Nil{}
+}
+
+func (ni *Nil) visit() string {
+    return fmt.Sprintf("(nil)")
+}
+
+type CallExpression struct {
+    name    string
+    exps    []*Node
+}
+
+func NewCallExpression(name string, exps []*Node) *CallExpression {
+    return &CallExpression{
+        name: name,
+        exps: exps,
+    }
+}
+
+func (ce *CallExpression) visit() string {
+    str := fmt.Sprintf("(callExp: %s", ce.name)
+    for i, n := range ce.exps {
+        if(n.Exp == nil) {
+            str += string(n.Token.Lexeme)
+        } else {
+            str += fmt.Sprintf("\nparam %d: %v ", i+1, n.Exp.visit())
+        }
+    }
+    str += "\n)"
     return str
 }

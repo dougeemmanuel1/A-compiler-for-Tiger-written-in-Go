@@ -10,6 +10,7 @@ import (
 
 var yylineno int = 1
 var seqExps = []*Node{}
+var expsByComma = []*Node{}
 
 func toInt(s string)  int {
     num, _ := strconv.ParseInt(s, 10, 64)
@@ -96,22 +97,23 @@ lValue      : ID
 fieldExp    : lValue DOT ID
             ;
 
-exp_list    : /* episoln */         {  }
+exp_list    : /* episoln */         { $$ = []*Node{}  }
             | exp_list exp { seqExps = append(seqExps, $2.ast) }
             | exp_list SEMICOLON exp { seqExps = append(seqExps, $3.ast) }
             ;
 
-expsComma   : exp COMMA expsComma
-            | exp
-            ;
+exp_list_comma    : /* episoln */         {  }
+                  | exp_list_comma exp { expsByComma = append(expsByComma, $2.ast) }
+                  | exp_list_comma COMMA exp { expsByComma = append(expsByComma, $3.ast) }
+                  ;
 
 exp         : lValue
-            | NIL               { $$.ast = $1.ast }
+            | NIL               { $$.ast = NewNode("nil", $1.token, NewNil()) }
             | INTLIT            { $$.ast = NewNode("INTLIT", $1.token, NewInteger(toInt(string($1.token.Lexeme)))) }
-            | STRINGLIT         { $$.ast = $1.ast }
+            | STRINGLIT         { $$.ast = NewNode("STRINGLIT", $1.token, NewStringLiteral(string($1.token.Lexeme))) }
             | seqExp            { $$.ast = $1.ast }
             | negation          { $$.ast = $1.ast }
-            | callExp
+            | callExp           { $$.ast = $1.ast }
             | infixExp          { $$.ast = $1.ast}
             | arrCreate
             | recCreate
@@ -130,8 +132,7 @@ seqExp      : LPAREN exp_list RPAREN { $$.ast = NewNode("seqexp", $2.token, NewS
 negation    : MINUS exp  %prec UNARY   { $$.ast = NewNode("NEG", $1.token, NewNegation($2.ast)) }
             ;
 
-callExp     : ID LPAREN expsComma RPAREN
-            | ID LPAREN RPAREN
+callExp     :ID LPAREN exp_list_comma RPAREN              { $$.ast = NewNode("CALLEXP", $1.token, NewCallExpression(string($1.token.Lexeme), expsByComma)) }
             ;
 
 infixExp    : exp STAR exp              { $$.ast = NewNode("MUL", $2.token, NewInfixExpression(Op_MUL,    $1.ast, $3.ast)) }
