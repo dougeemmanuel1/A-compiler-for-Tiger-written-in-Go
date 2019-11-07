@@ -23,6 +23,22 @@ const (
     Op_NEG Op = 12
 )
 
+type Integer struct {
+    Number int
+}
+
+func NewInteger(number int) *Integer {
+    return &Integer{
+        Number: number,
+    }
+}
+
+func (i *Integer) visit() string {
+    return fmt.Sprintf("(int %d)", i.Number)
+}
+
+
+
 type InfixExpression struct {
     OpType Op
     Left *Node
@@ -38,7 +54,7 @@ func NewInfixExpression(opType Op, left *Node , right *Node) *InfixExpression {
 }
 
 func (ie *InfixExpression) visit() string {
-    return fmt.Sprintf("(%s left:%v  right:%v)", resolveOp(ie.OpType), string(ie.Left.Token.Lexeme), string(ie.Left.Token.Lexeme))
+    return fmt.Sprintf("(%s %v %v)", resolveOp(ie.OpType), string(ie.Left.visit()), ie.Right.visit())
 
 }
 
@@ -86,7 +102,7 @@ func NewNegation(exp *Node) *Negation {
 }
 
 func (ne *Negation) visit() string {
-    return fmt.Sprintf("(NEG %v)", string(ne.exp.Token.Lexeme ))
+    return fmt.Sprintf("(NEG %v)", string(ne.exp.visit()))
 }
 
 type SeqExpression struct {
@@ -102,9 +118,24 @@ func NewSeqExpression(expressions []*Node) *SeqExpression {
 func (se *SeqExpression) visit() string {
     str := "(seqexp "
     for _, n := range se.Exps {
-        str += fmt.Sprintf("%v",n.Exp.visit())
+        str += fmt.Sprintf("\n%v ", n.Exp)
     }
 
-    str += ")"
+    str += "\n)"
+    return str
+}
+
+type StringLiteral struct {
+    str string
+}
+
+func NewStringLiteral(s string) *StringLiteral {
+    return &StringLiteral{
+        str: s,
+    }
+}
+
+func (sl *StringLiteral) visit() string {
+    str := fmt.Sprintf("(strlit %s)", sl.str)
     return str
 }

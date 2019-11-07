@@ -5,11 +5,24 @@ package main
 import (
     "github.com/timtadh/lexmachine"
     _ "fmt"
+    "strconv"
 )
 
 var yylineno int = 1
 var seqExps = []*Node{}
+
+func toInt(s string)  int {
+    num, _ := strconv.ParseInt(s, 10, 64)
+    return int(num)
+}
 %}
+
+%left OR
+%left AND
+%nonassoc EQUALS NEQ GT LT GEQ LEQ
+%left PLUS MINUS
+%left STAR FORWARDSLASH
+%right UNARY
 
 %union{
     token *lexmachine.Token
@@ -93,13 +106,13 @@ expsComma   : exp COMMA expsComma
             ;
 
 exp         : lValue
-            | NIL
-            | INTLIT
-            | STRINGLIT
+            | NIL               { $$.ast = $1.ast }
+            | INTLIT            { $$.ast = NewNode("INTLIT", $1.token, NewInteger(toInt(string($1.token.Lexeme)))) }
+            | STRINGLIT         { $$.ast = $1.ast }
             | seqExp            { $$.ast = $1.ast }
             | negation          { $$.ast = $1.ast }
             | callExp
-            | infixExp
+            | infixExp          { $$.ast = $1.ast}
             | arrCreate
             | recCreate
             | assignment
@@ -111,28 +124,28 @@ exp         : lValue
             | letExp
             ;
 
-seqExp      : LPAREN exp_list RPAREN { $$.ast = NewNode("seqexp", nil, NewSeqExpression(seqExps)) }
+seqExp      : LPAREN exp_list RPAREN { $$.ast = NewNode("seqexp", $2.token, NewSeqExpression(seqExps)) }
             ;
 
-negation    : MINUS exp     { $$.ast = NewNode("NEG", $1.token, NewNegation(NewNode("int", $2.token, nil))) }
+negation    : MINUS exp  %prec UNARY   { $$.ast = NewNode("NEG", $1.token, NewNegation($2.ast)) }
             ;
 
 callExp     : ID LPAREN expsComma RPAREN
             | ID LPAREN RPAREN
             ;
 
-infixExp    : exp STAR exp              { $$.ast = NewNode("MUL", $2.token, NewInfixExpression(0, NewNode("int", $1.token, nil), NewNode("int", $3.token, nil))) }
-            | exp FORWARDSLASH exp      { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(1, NewNode("int", $1.token, nil), NewNode("int", $3.token, nil))) }
-            | exp PLUS exp              { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(2, NewNode("int", $1.token, nil), NewNode("int", $3.token, nil))) }
-            | exp MINUS exp             { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(3, NewNode("int", $1.token, nil), NewNode("int", $3.token, nil))) }
-            | exp EQUALS exp            { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(4, NewNode("int", $1.token, nil), NewNode("int", $3.token, nil))) }
-            | exp DOUBLEARROW exp       { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(5, NewNode("int", $1.token, nil), NewNode("int", $3.token, nil))) }
-            | exp RARROW exp            { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(6, NewNode("int", $1.token, nil), NewNode("int", $3.token, nil))) }
-            | exp LARROW exp            { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(7, NewNode("int", $1.token, nil), NewNode("int", $3.token, nil))) }
-            | exp GREATERTHANEQ exp     { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(8, NewNode("int", $1.token, nil), NewNode("int", $3.token, nil))) }
-            | exp LESSTHANEQ exp        { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(9, NewNode("int", $1.token, nil), NewNode("int", $3.token, nil))) }
-            | exp AND exp               { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(10, NewNode("int", $1.token, nil), NewNode("int", $3.token, nil))) }
-            | exp BAR exp               { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(11, NewNode("int", $1.token, nil), NewNode("int", $3.token, nil))) }
+infixExp    : exp STAR exp              { $$.ast = NewNode("MUL", $2.token, NewInfixExpression(Op_MUL,    $1.ast, $3.ast)) }
+            | exp FORWARDSLASH exp      { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(Op_DIV,    $1.ast, $3.ast)) }
+            | exp PLUS exp              { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(Op_PLUS,   $1.ast, $3.ast)) }
+            | exp MINUS exp             { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(Op_MINUS,  $1.ast, $3.ast)) }
+            | exp EQUALS exp            { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(Op_EQUALS, $1.ast, $3.ast)) }
+            | exp DOUBLEARROW exp       { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(Op_NEQ,    $1.ast, $3.ast)) }
+            | exp RARROW exp            { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(Op_GT,     $1.ast, $3.ast)) }
+            | exp LARROW exp            { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(Op_LT,     $1.ast, $3.ast)) }
+            | exp GREATERTHANEQ exp     { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(Op_GTE,    $1.ast, $3.ast)) }
+            | exp LESSTHANEQ exp        { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(Op_LTE,    $1.ast, $3.ast)) }
+            | exp AND exp               { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(Op_AND,    $1.ast, $3.ast)) }
+            | exp BAR exp               { $$.ast = NewNode("DIV", $2.token, NewInfixExpression(Op_OR,     $1.ast, $3.ast)) }
             ;
 
 recCreate   : ID LCURLY fieldCreates RCURLY

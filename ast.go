@@ -16,6 +16,16 @@ type Node struct {
 	Exp   	 Visitor
 }
 
+func (n *Node) visit() string {
+	str := ""
+	if(n.Exp != nil) {
+		str = n.Exp.visit()
+	} else {
+		str = string(n.Token.Lexeme)
+	}
+	return str
+}
+
 type Visitor interface {
 	visit() string
 }
@@ -50,6 +60,7 @@ func (n *Node) String() string {
 		// parts = append(parts, fmt.Sprintf("%q", string(n.Token.Lexeme)))
 		// parts = append(parts, fmt.Sprintf("%q", n.visit()))
 	}
+
 	parts = append(parts, n.Exp.visit())
 	for _, k := range n.Children {
 		if(k.Exp != nil) {
