@@ -113,16 +113,16 @@ func (ne *Negation) visit() string {
 }
 
 type SeqExpression struct {
-    Exps []Node
+    Exps []*Node
 }
 
 func NewSeqExpression(expressions []*Node) *SeqExpression {
-    var copiedExpressionContents []Node
-    for _, e := range expressions {
-        copiedExpressionContents = append(copiedExpressionContents, *e)
-    }
+    // var copiedExpressionContents []Node
+    // for _, e := range expressions {
+        // copiedExpressionContents = append(copiedExpressionContents, *e)
+    // }
     return &SeqExpression{
-        Exps: copiedExpressionContents,
+        Exps: expressions,
     }
 }
 
