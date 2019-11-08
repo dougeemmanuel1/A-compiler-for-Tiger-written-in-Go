@@ -9,8 +9,6 @@ import (
 )
 
 var yylineno int = 1
-var seqExps = []*Node{}
-var expsByComma = []*Node{}
 
 func toInt(s string)  int {
     num, _ := strconv.ParseInt(s, 10, 64)
@@ -29,7 +27,6 @@ func toInt(s string)  int {
     token *lexmachine.Token
     ast   *Node
     NodeList []Node
-    FinalList []*Node
     strLit string
 }
 
@@ -41,11 +38,12 @@ func toInt(s string)  int {
 %token  NIL OF THEN TO TYPE VAR WHILE
 %token  ID INTLIT STRINGLIT NEWLINE
 
-%type <NodeList> exp_list
-%type <ast> exp
-%type <ast> NIL INTLIT STRINGLIT seqExp negation callExp infixExp arrCreate recCreate assignment ifThenElse ifThen whileExp forExp BREAK letExp lValue subscript fieldExp Decs Dec tyDec varDec funDec FUNCTION ty arrTy recTy ARRAY fieldDecs fieldDec
-%type <strLit> ID
-
+%type <NodeList> exp_list_semi exp_list_comma Decs fieldDecs fieldCreates
+%type <ast> exp seqExp negation callExp infixExp arrCreate recCreate assignment
+%type <ast> funDec FUNCTION ty arrTy recTy ARRAY fieldDec
+%type <ast> fieldCreate ifThenElse ifThen whileExp forExp BREAK letExp lValue
+%type <ast> NIL  subscript fieldExp Dec tyDec varDec
+%type <token> ID INTLIT STRINGLIT
 %start Program
 %%
 
@@ -57,36 +55,36 @@ Dec         : tyDec    { $$ = $1 }
             | funDec { $$ = $1 }
             ;
 
-tyDec       : TYPE ID EQUALS ty { $$ = $4 }
+tyDec       : TYPE ID EQUALS ty { $$ = NewNode("typeDec", nil, NewTypeDeclaration(string($2.Lexeme), $4)) }
             ;
 
-ty          : ID       { $$ = NewNode("sometyid", nil, nil) }
+ty          : ID       { $$ = NewNode("ID", $1, NewIdentifier(string($1.Lexeme))) }
             | arrTy    { $$ = $1 }
             | recTy     { $$ = $1 }
             ;
 
-arrTy       : ARRAY OF ID { $$ = $1 }
+arrTy       : ARRAY OF ID { $$ = NewNode("arrTy", nil, NewArrayType(string($3.Lexeme))) }
             ;
 
-recTy       : LCURLY fieldDecs RCURLY  { $$ = $2 }
-            | LCURLY RCURLY  { $$ = NewNode("recTy", nil, nil) }
+recTy       : LCURLY fieldDecs RCURLY  { $$ = NewNode("sad",nil, NewRecordType($2)) }
+            | LCURLY RCURLY  { $$ = NewNode("recTy", nil, NewRecordType([]Node{})) }
             ;
 
-fieldDecs   : fieldDec COMMA fieldDecs { $$ = $1 }
-            | fieldDec  { $$ = $1 }
+fieldDecs   : fieldDec COMMA fieldDecs { $$ = append($$, *$1) }
+            | fieldDec  { $$ = append($$, *$1) }
             ;
 
-fieldDec    : ID COLON ID { $$ = NewNode("fieldDec", nil, nil) }
+fieldDec    : ID COLON ID { $$ = NewNode("fieldDec", nil, NewFieldDeclaration(string($1.Lexeme), string($3.Lexeme))) }
             ;
 
-funDec      : FUNCTION ID LPAREN fieldDecs RPAREN EQUALS exp   { $$ = $1 }
-            | FUNCTION ID LPAREN RPAREN EQUALS exp          { $$ = $1 }
-            | FUNCTION ID LPAREN fieldDecs RPAREN COLON ID EQUALS exp { $$ = $1 }
-            | FUNCTION ID LPAREN RPAREN COLON ID EQUALS exp { $$ = $1 }
+funDec      : FUNCTION ID LPAREN fieldDecs RPAREN EQUALS exp   { $$ = NewNode("funDec", nil, NewFuncDeclaration(string($2.Lexeme), "", $4,  *$7)) }
+            | FUNCTION ID LPAREN RPAREN EQUALS exp             { $$ = NewNode("funDec", nil, NewFuncDeclaration(string($2.Lexeme), "", []Node{}, *$6)) }
+            | FUNCTION ID LPAREN fieldDecs RPAREN COLON ID EQUALS exp  { $$ = NewNode("funDec", nil, NewFuncDeclaration(string($2.Lexeme), string($7.Lexeme), $4, *$9)) }
+            | FUNCTION ID LPAREN RPAREN COLON ID EQUALS exp  { $$ = NewNode("funDec", nil, NewFuncDeclaration(string($2.Lexeme), string($6.Lexeme), []Node{}, *$8)) }
             ;
 
-varDec      : VAR ID COLONEQUALS exp { $$ = $4 }
-            | VAR ID COLON ID COLONEQUALS exp { $$ = $6 }
+varDec      : VAR ID COLONEQUALS exp { $$ = NewNode("varDec", nil, NewVarDeclaration(string($2.Lexeme), "", $4)) }
+            | VAR ID COLON ID COLONEQUALS exp { $$ = NewNode("varDec", nil, NewVarDeclaration(string($2.Lexeme), string($4.Lexeme), $6)) }
             ;
 
 
@@ -94,100 +92,101 @@ subscript   : lValue LBRACKET exp RBRACKET { $$ = $1 }
             | ID LBRACKET exp RBRACKET  { $$ = $3 }/*  verbose subscript to force reduce   */
             ;
 
-arrCreate   : ID LBRACKET exp RBRACKET OF exp { $$ = NewNode("arrCreate", nil, nil) }
+arrCreate   : ID LBRACKET exp RBRACKET OF exp { $$ = NewNode("arrCreate", nil, NewArrayCreate(string($1.Lexeme), *$3, *$6)) }
             ;
 
-lValue      : ID               { $$ = NewNode("someid", nil, nil) }
+lValue      : ID                { $$ = NewNode("ID", $1, NewIdentifier(string($1.Lexeme))) }
             | subscript         { $$ = $1 }
             | fieldExp          { $$ = $1 }
             ;
 
-fieldExp    : lValue DOT ID
+fieldExp    : lValue DOT ID     { $$ = NewNode("fieldExp", nil, NewFieldExpression(*$1, string($3.Lexeme)))}
             ;
 
-exp_list    : /* episoln */         {   }
-            | exp_list exp { $$ = append($$, *$2) }
-            | exp_list SEMICOLON exp { $$ = append($$, *$3) }
+exp_list_semi : /* episoln */         {   }
+              | exp_list_semi exp { $$ = append($$, *$2) }
+              | exp_list_semi SEMICOLON exp { $$ = append($$, *$3) }
+              ;
+
+exp_list_comma    : /* episoln */         {   }
+            | exp_list_comma exp { $$ = append($$, *$2) }
+            | exp_list_comma COMMA exp { $$ = append($$, *$3) }
             ;
 
-exp_list_comma    : /* episoln */         {  }
-                  | exp_list_comma exp { expsByComma = append(expsByComma, $2.ast) }
-                  | exp_list_comma COMMA exp { expsByComma = append(expsByComma, $3.ast) }
-                  ;
 
-exp         : NIL               { $$.ast = NewNode("nil", $1.token, NewNil()) }
-            | INTLIT            { $$.ast = NewNode("INTLIT", $1.token, NewInteger(toInt(string($1.token.Lexeme)))) }
-            | STRINGLIT         { $$.ast = NewNode("STRINGLIT", $1.token, NewStringLiteral(string($1.token.Lexeme))) }
-            | seqExp            { $$.ast = $1.ast }
-            | negation          { $$.ast = $1.ast }
-            | callExp           { $$.ast = $1.ast }
-            | infixExp          { $$.ast = $1.ast }
-            | arrCreate         { $$.ast = $1.ast }
-            | recCreate         { $$.ast = $1.ast }
-            | assignment        { $$.ast = $1.ast }
-            | ifThenElse        { $$.ast = $1.ast }
-            | ifThen            { $$.ast = $1.ast }
-            | whileExp          { $$.ast = $1.ast }
-            | forExp            { $$.ast = $1.ast }
-            | BREAK             { $$.ast = $1.ast }
-            | letExp            { $$.ast = $1.ast }
-            | lValue            { $$.ast = $1.ast }
+exp         : NIL               { $$ = NewNode("nil", nil, NewNil()) }
+            | INTLIT            { $$ = NewNode("INTLIT", nil, NewInteger(toInt(string($1.Lexeme)))) }
+            | STRINGLIT         { $$ = NewNode("STRINGLIT", nil, NewStringLiteral(string($1.Lexeme))) }
+            | seqExp            { $$ = $1 }
+            | negation          { $$ = $1 }
+            | callExp           { $$ = $1 }
+            | infixExp          { $$ = $1 }
+            | arrCreate         { $$ = $1 }
+            | recCreate         { $$ = $1 }
+            | assignment        { $$ = $1 }
+            | ifThenElse        { $$ = $1 }
+            | ifThen            { $$ = $1 }
+            | whileExp          { $$ = $1 }
+            | forExp            { $$ = $1 }
+            | BREAK             { $$ = $1 }
+            | letExp            { $$ = $1 }
+            | lValue            { $$ = $1 }
             ;
 
-seqExp      : LPAREN exp_list RPAREN { $$.ast = NewNode("seqexp", $2.token, NewSeqExpression(seqExps)) }
+seqExp      : LPAREN exp_list_semi RPAREN { $$ = NewNode("seqexp", nil, NewSeqExpression($2)) }
             ;
 
-negation    : MINUS exp  %prec UNARY   { $$.ast = NewNode("NEG", $2.token, NewNegation($2.ast)) }
+negation    : MINUS exp  %prec UNARY   { $$ = NewNode("NEG", nil, NewNegation($2)) }
             ;
 
-callExp     :ID LPAREN exp_list_comma RPAREN              { $$.ast = NewNode("CALLEXP", $1.token, NewCallExpression(string($1.token.Lexeme), expsByComma)) }
+callExp     :ID LPAREN exp_list_comma RPAREN    { $$ = NewNode("CALLEXP", nil, NewCallExpression(string($1.Lexeme), $3)) }
             ;
 
-infixExp    : exp STAR exp              { $$.ast = NewNode("MUL", $1.token, NewInfixExpression(Op_MUL,    $1.ast, $3.ast)) }
-            | exp FORWARDSLASH exp      { $$.ast = NewNode("DIV", $1.token, NewInfixExpression(Op_DIV,    $1.ast, $3.ast)) }
-            | exp PLUS exp              { $$.ast = NewNode("DIV", $1.token, NewInfixExpression(Op_PLUS,   $1.ast, $3.ast)) }
-            | exp MINUS exp             { $$.ast = NewNode("DIV", $1.token, NewInfixExpression(Op_MINUS,  $1.ast, $3.ast)) }
-            | exp EQUALS exp            { $$.ast = NewNode("DIV", $1.token, NewInfixExpression(Op_EQUALS, $1.ast, $3.ast)) }
-            | exp DOUBLEARROW exp       { $$.ast = NewNode("DIV", $1.token, NewInfixExpression(Op_NEQ,    $1.ast, $3.ast)) }
-            | exp RARROW exp            { $$.ast = NewNode("DIV", $1.token, NewInfixExpression(Op_GT,     $1.ast, $3.ast)) }
-            | exp LARROW exp            { $$.ast = NewNode("DIV", $1.token, NewInfixExpression(Op_LT,     $1.ast, $3.ast)) }
-            | exp GREATERTHANEQ exp     { $$.ast = NewNode("DIV", $1.token, NewInfixExpression(Op_GTE,    $1.ast, $3.ast)) }
-            | exp LESSTHANEQ exp        { $$.ast = NewNode("DIV", $1.token, NewInfixExpression(Op_LTE,    $1.ast, $3.ast)) }
-            | exp AND exp               { $$.ast = NewNode("DIV", $1.token, NewInfixExpression(Op_AND,    $1.ast, $3.ast)) }
-            | exp BAR exp               { $$.ast = NewNode("DIV", $1.token, NewInfixExpression(Op_OR,     $1.ast, $3.ast)) }
+infixExp    : exp STAR exp              { $$ = NewNode("MUL", nil, NewInfixExpression(Op_MUL,    *$1, *$3)) }
+            | exp FORWARDSLASH exp      { $$ = NewNode("DIV", nil, NewInfixExpression(Op_DIV,    *$1, *$3)) }
+            | exp PLUS exp              { $$ = NewNode("DIV", nil, NewInfixExpression(Op_PLUS,   *$1, *$3)) }
+            | exp MINUS exp             { $$ = NewNode("DIV", nil, NewInfixExpression(Op_MINUS,  *$1, *$3)) }
+            | exp EQUALS exp            { $$ = NewNode("DIV", nil, NewInfixExpression(Op_EQUALS, *$1, *$3)) }
+            | exp DOUBLEARROW exp       { $$ = NewNode("DIV", nil, NewInfixExpression(Op_NEQ,    *$1, *$3)) }
+            | exp RARROW exp            { $$ = NewNode("DIV", nil, NewInfixExpression(Op_GT,     *$1, *$3)) }
+            | exp LARROW exp            { $$ = NewNode("DIV", nil, NewInfixExpression(Op_LT,     *$1, *$3)) }
+            | exp GREATERTHANEQ exp     { $$ = NewNode("DIV", nil, NewInfixExpression(Op_GTE,    *$1, *$3)) }
+            | exp LESSTHANEQ exp        { $$ = NewNode("DIV", nil, NewInfixExpression(Op_LTE,    *$1, *$3)) }
+            | exp AND exp               { $$ = NewNode("DIV", nil, NewInfixExpression(Op_AND,    *$1, *$3)) }
+            | exp BAR exp               { $$ = NewNode("DIV", nil, NewInfixExpression(Op_OR,     *$1, *$3)) }
             ;
 
-recCreate   : ID LCURLY fieldCreates RCURLY { $$.ast = $1.ast }
-            | ID LCURLY RCURLY  { $$.ast = $1.ast }
+recCreate   : ID LCURLY fieldCreates RCURLY { $$ = NewNode("recCreate", nil, NewRecordCreate(string($1.Lexeme), $3)) }
+            | ID LCURLY RCURLY  { $$ = NewNode("recCreate", nil, NewRecordCreate(string($1.Lexeme), []Node{})) }
             ;
 
-fieldCreates: fieldCreate COMMA fieldCreates
-            | fieldCreate
+fieldCreates: fieldCreates COMMA fieldCreate   { $$ = append($$, *$3) }
+            | fieldCreate   { $$ = append($$, *$1) }
             ;
 
-fieldCreate : ID EQUALS exp
+fieldCreate : ID EQUALS exp { $$ = NewNode("fieldCreate", nil, NewFieldCreate(string($1.Lexeme), *$3)) }
             ;
 
-assignment  : lValue COLONEQUALS exp
+assignment  : lValue COLONEQUALS exp    { $$ = NewNode("assignment", nil, NewAssignment(*$1, *$3))}
             ;
 
-ifThenElse  : IF exp THEN exp ELSE exp  { $$.ast = $2.ast }
+ifThenElse  : IF exp THEN exp ELSE exp  { $$ = NewNode("Iftheneelse", nil, NewIfThenElseExpression(*$2, *$4, *$6)) }
             ;
 
-ifThen      : IF exp THEN exp { $$.ast = $2.ast }
+ifThen      : IF exp THEN exp { $$ = $2 }
             ;
 
-whileExp    : WHILE exp DO exp { $$.ast = $2.ast }
+whileExp    : WHILE exp DO exp { $$ = $2 }
             ;
 
-forExp      : FOR ID COLONEQUALS exp TO exp DO exp { $$.ast = $4.ast }
+forExp      : FOR ID COLONEQUALS exp TO exp DO exp { $$ = $4 }
             ;
 
-Decs        : Dec Decs { $$.ast = $1.ast }
-            | Dec { $$.ast = $1.ast }
+Decs        : Decs Dec { $$ = append($$, *$2) }
+            | Dec { $$ = append($$, *$1) }
             ;
 
-letExp      : LET Decs IN exp_list END { $$.ast = $2.ast }
+letExp      : LET Decs IN exp_list_semi END { $$ = NewNode("letexp", nil, NewLetExpression($2, $4)) }
             ;
 
 ;
