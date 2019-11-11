@@ -250,18 +250,18 @@ func (fd *FuncDeclaration) visit() string {
 
 type FieldDeclaration struct {
     id1    string
-    id2    string
+    fieldType   string
 }
 
-func NewFieldDeclaration(identifier1 string, identifier2 string) *FieldDeclaration {
+func NewFieldDeclaration(identifier1 string, fieldType string) *FieldDeclaration {
     return &FieldDeclaration{
         id1: identifier1,
-        id2: identifier2,
+        fieldType: fieldType,
     }
 }
 
 func (fid *FieldDeclaration) visit() string {
-    return fmt.Sprintf("fieldDec: (id1:%s) (id2:%s)", fid.id1, fid.id2)
+    return fmt.Sprintf("fieldDec: (id1:%s) (fieldType:%s)", fid.id1, fid.fieldType)
 }
 
 type FieldExpression struct {
@@ -332,11 +332,11 @@ func (id *Identifier) visit() string {
 
 type Subscript struct {
     id          string
-    expId        Node
+    expId        *Node
     subscriptExp Node
 }
 
-func NewSubscript(id string, expId Node, subscriptExp Node) *Subscript {
+func NewSubscriptExpression(id string, expId *Node, subscriptExp Node) *Subscript {
     return &Subscript{
         id: id,
         expId: expId,
@@ -344,12 +344,12 @@ func NewSubscript(id string, expId Node, subscriptExp Node) *Subscript {
     }
 }
 
-func (s *Subscript) visit() string {
+func (se *Subscript) visit() string {
     var str string
-    if(s.id != "") {
-        str = fmt.Sprintf("(Subscript id:%s exp:%v)", s.id, s.subscriptExp.Exp.visit())
+    if(se.id != "") {
+        str = fmt.Sprintf("(Subscript id:%s exp:%v)", se.id, se.subscriptExp.Exp.visit())
     } else {
-        str = fmt.Sprintf("(Subscript id:%s exp:%v)", s.expId.Exp.visit(), s.subscriptExp.Exp.visit())
+        str = fmt.Sprintf("(Subscript id:%s exp:%v)", se.expId.Exp.visit(), se.subscriptExp.Exp.visit())
     }
     return str
 }
@@ -386,7 +386,7 @@ func NewRecordCreate(id string, decs []Node) *RecordCreate {
 }
 
 func (rc *RecordCreate) visit() string {
-    str := fmt.Sprintf("(recCreate: decs:(")
+    str := fmt.Sprintf("(recCreate: id:%s decs:(", rc.id)
     for _, n := range rc.decs {
         str += fmt.Sprintf("%v",n.Exp.visit())
     }
@@ -472,4 +472,57 @@ func NewIfThenElseExpression(exp1 Node, exp2 Node, exp3 Node) *IfThenElseExpress
 
 func (itee *IfThenElseExpression) visit() string {
     return fmt.Sprintf("(ifThenElse if:%v then:%v else:%v)", itee.exp1.Exp.visit(), itee.exp2.Exp.visit(), itee.exp3.Exp.visit())
+}
+
+type IfThenExpression struct {
+    exp1  Node
+    exp2  Node
+}
+
+func NewIfThenExpression(exp1 Node, exp2 Node) *IfThenExpression {
+    return &IfThenExpression{
+        exp1:exp1,
+        exp2:exp2,
+    }
+}
+
+func (ite *IfThenExpression) visit() string {
+    return fmt.Sprintf("(ifThen if:%v then:%v)", ite.exp1.Exp.visit(), ite.exp2.Exp.visit())
+}
+
+
+type WhileExpression struct {
+    exp1  Node
+    exp2  Node
+}
+
+func NewWhileExpression(exp1 Node, exp2 Node) *WhileExpression {
+    return &WhileExpression{
+        exp1:exp1,
+        exp2:exp2,
+    }
+}
+
+func (we *WhileExpression) visit() string {
+    return fmt.Sprintf("(whileExp cond:%v do:%v)", we.exp1.Exp.visit(), we.exp2.Exp.visit())
+}
+
+type ForExpression struct {
+    id    string
+    exp1  Node
+    exp2  Node
+    exp3  Node
+}
+
+func NewForExpression(id string, exp1 Node, exp2 Node, exp3 Node) *ForExpression {
+    return &ForExpression{
+        id:id,
+        exp1:exp1,
+        exp2:exp2,
+        exp3:exp3,
+    }
+}
+
+func (fe *ForExpression) visit() string {
+    return fmt.Sprintf("(forexp id:%s exp1:%v exp2:%v exp3:%v)", fe.id, fe.exp1.Exp.visit(), fe.exp2.Exp.visit(), fe.exp3.Exp.visit())
 }

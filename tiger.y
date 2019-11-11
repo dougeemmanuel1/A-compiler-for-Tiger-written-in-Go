@@ -70,8 +70,9 @@ recTy       : LCURLY fieldDecs RCURLY  { $$ = NewNode("sad",nil, NewRecordType($
             | LCURLY RCURLY  { $$ = NewNode("recTy", nil, NewRecordType([]Node{})) }
             ;
 
-fieldDecs   : fieldDec COMMA fieldDecs { $$ = append($$, *$1) }
-            | fieldDec  { $$ = append($$, *$1) }
+fieldDecs   : /* episoln */         {  $$ = []Node{} }
+            | fieldDecs fieldDec { $$ = append($$, *$2) }
+            | fieldDecs COMMA fieldDec { $$ = append($$, *$3) }
             ;
 
 fieldDec    : ID COLON ID { $$ = NewNode("fieldDec", nil, NewFieldDeclaration(string($1.Lexeme), string($3.Lexeme))) }
@@ -88,8 +89,8 @@ varDec      : VAR ID COLONEQUALS exp { $$ = NewNode("varDec", nil, NewVarDeclara
             ;
 
 
-subscript   : lValue LBRACKET exp RBRACKET { $$ = $1 }
-            | ID LBRACKET exp RBRACKET  { $$ = $3 }/*  verbose subscript to force reduce   */
+subscript   : lValue LBRACKET exp RBRACKET { $$ = NewNode("subscript", nil, NewSubscriptExpression("", $1, *$3) ) }
+            | ID LBRACKET exp RBRACKET  { $$ =  NewNode("subscript", nil, NewSubscriptExpression(string($1.Lexeme), nil, *$3)) }/*  verbose subscript to force reduce   */
             ;
 
 arrCreate   : ID LBRACKET exp RBRACKET OF exp { $$ = NewNode("arrCreate", nil, NewArrayCreate(string($1.Lexeme), *$3, *$6)) }
@@ -103,12 +104,12 @@ lValue      : ID                { $$ = NewNode("ID", $1, NewIdentifier(string($1
 fieldExp    : lValue DOT ID     { $$ = NewNode("fieldExp", nil, NewFieldExpression(*$1, string($3.Lexeme)))}
             ;
 
-exp_list_semi : /* episoln */         {   }
+exp_list_semi : /* episoln */        {  $$ = []Node{} }
               | exp_list_semi exp { $$ = append($$, *$2) }
               | exp_list_semi SEMICOLON exp { $$ = append($$, *$3) }
               ;
 
-exp_list_comma    : /* episoln */         {   }
+exp_list_comma    : /* episoln */     {  $$ = []Node{} }
             | exp_list_comma exp { $$ = append($$, *$2) }
             | exp_list_comma COMMA exp { $$ = append($$, *$3) }
             ;
@@ -173,13 +174,13 @@ assignment  : lValue COLONEQUALS exp    { $$ = NewNode("assignment", nil, NewAss
 ifThenElse  : IF exp THEN exp ELSE exp  { $$ = NewNode("Iftheneelse", nil, NewIfThenElseExpression(*$2, *$4, *$6)) }
             ;
 
-ifThen      : IF exp THEN exp { $$ = $2 }
+ifThen      : IF exp THEN exp { $$ = NewNode("Ifthen", nil, NewIfThenExpression(*$2, *$4)) }
             ;
 
-whileExp    : WHILE exp DO exp { $$ = $2 }
+whileExp    : WHILE exp DO exp { $$ = NewNode("whileExp", nil, NewWhileExpression(*$2, *$4)) }
             ;
 
-forExp      : FOR ID COLONEQUALS exp TO exp DO exp { $$ = $4 }
+forExp      : FOR ID COLONEQUALS exp TO exp DO exp { $$ = NewNode("Forexp", nil, NewForExpression(string($2.Lexeme), *$4, *$6, *$8))}
             ;
 
 Decs        : Decs Dec { $$ = append($$, *$2) }
