@@ -23,7 +23,10 @@ const (
     Op_NEG Op = 12
 )
 
+type StringPrimitive struct {}
+type VoidType struct {}
 type Integer struct {
+    expType    interface{}
     Number int
 }
 
@@ -33,13 +36,20 @@ func NewInteger(number int) *Integer {
     }
 }
 
+func NewIntegerPrimitive() *Integer {
+    return &Integer{}
+}
+
+
 func (i *Integer) visit() string {
     return fmt.Sprintf("(int %d)", i.Number)
 }
 
-
+func (i *Integer) analyze(c *Context)  {
+}
 
 type InfixExpression struct {
+    expType    interface{}
     OpType Op
     Left Node
     Right  Node
@@ -56,6 +66,9 @@ func NewInfixExpression(opType Op, left Node , right Node) *InfixExpression {
 func (ie *InfixExpression) visit() string {
     return fmt.Sprintf("(%s %v %v)", resolveOp(ie.OpType), string(ie.Left.Exp.visit()), ie.Right.Exp.visit())
 
+}
+
+func  (ie *InfixExpression) analyze(c *Context)  {
 }
 
 func resolveOp(opType Op) string {
@@ -92,6 +105,7 @@ func resolveOp(opType Op) string {
 }
 
 type Negation struct {
+    expType    interface{}
     Exp *Node
 }
 
@@ -112,7 +126,12 @@ func (ne *Negation) visit() string {
     return str
 }
 
+func (ne *Negation) analyze(c *Context)  {
+}
+
+
 type SeqExpression struct {
+    expType    interface{}
     Exps []Node
 }
 
@@ -140,7 +159,12 @@ func (se *SeqExpression) visit() string {
     return str
 }
 
+func (se *SeqExpression) analyze(c *Context)  {
+}
+
+
 type StringLiteral struct {
+    expType    interface{}
     str string
 }
 
@@ -155,7 +179,13 @@ func (sl *StringLiteral) visit() string {
     return str
 }
 
+func (sl *StringLiteral) analyze(c *Context)  {
+}
+
+
+
 type Assignment struct {
+    expType    interface{}
     lValue  Node
     exp     Node
 }
@@ -171,8 +201,14 @@ func (as *Assignment) visit() string {
     return fmt.Sprintf("(assignment lValue:%v exp:%v)", as.lValue.Exp.visit(), as.exp.Exp.visit())
 }
 
+func (as *Assignment) analyze(c *Context)  {
+}
 
-type Nil struct {}
+
+
+type Nil struct {
+    expType interface{}
+}
 
 func NewNil() *Nil {
     return &Nil{}
@@ -182,7 +218,12 @@ func (ni *Nil) visit() string {
     return fmt.Sprintf("(nil)")
 }
 
+func (ni *Nil) analyze(c *Context)  {
+}
+
+
 type CallExpression struct {
+    expType    interface{}
     name    string
     exps    []Node
 }
@@ -207,7 +248,12 @@ func (ce *CallExpression) visit() string {
     return str
 }
 
+func (ce *CallExpression) analyze(c *Context)  {
+}
+
+
 type TypeDeclaration struct {
+    expType    interface{}
     id    string
     Exp    Node
 }
@@ -223,16 +269,22 @@ func (td *TypeDeclaration) visit() string {
     return fmt.Sprintf("(tyDec: type:%s %s)", td.id, td.Exp.visit())
 }
 
+func (td *TypeDeclaration) analyze(c *Context)  {
+    td.Exp.analyze(c)
+}
+
+
 type FuncDeclaration struct {
-    id1     string
+    expType    interface{}
+    id     string
     id2     string
     decs   []Node
     exp    Node
 }
 
-func NewFuncDeclaration(id1 string, id2 string, declarations []Node, n Node) *FuncDeclaration {
+func NewFuncDeclaration(id string, id2 string, declarations []Node, n Node) *FuncDeclaration {
     return &FuncDeclaration{
-        id1: id1,
+        id: id,
         id2: id2,
         decs: declarations,
         exp: n,
@@ -240,7 +292,7 @@ func NewFuncDeclaration(id1 string, id2 string, declarations []Node, n Node) *Fu
 }
 
 func (fd *FuncDeclaration) visit() string {
-    str := fmt.Sprintf("(funDec: id1:%s id2:%s decs:", fd.id1, fd.id2)
+    str := fmt.Sprintf("(funDec: id:%s id2:%s decs:", fd.id, fd.id2)
     for _, n := range fd.decs {
         str += fmt.Sprintf("(%v)\n", n.Exp.visit())
     }
@@ -248,23 +300,33 @@ func (fd *FuncDeclaration) visit() string {
     return str
 }
 
+func (fd *FuncDeclaration) analyze(c *Context)  {
+}
+
+
 type FieldDeclaration struct {
-    id1    string
+    expType    interface{}
+    id    string
     fieldType   string
 }
 
 func NewFieldDeclaration(identifier1 string, fieldType string) *FieldDeclaration {
     return &FieldDeclaration{
-        id1: identifier1,
+        id: identifier1,
         fieldType: fieldType,
     }
 }
 
 func (fid *FieldDeclaration) visit() string {
-    return fmt.Sprintf("fieldDec: (id1:%s) (fieldType:%s)", fid.id1, fid.fieldType)
+    return fmt.Sprintf("fieldDec: (id:%s) (fieldType:%s)", fid.id, fid.fieldType)
 }
 
+func (fid *FieldDeclaration) analyze(c *Context)  {
+}
+
+
 type FieldExpression struct {
+    expType    interface{}
     lValue    Node
     id        string
 }
@@ -280,7 +342,12 @@ func (fe *FieldExpression) visit() string {
     return fmt.Sprintf("(fieldExp: (lValue:%v) (id:%s))", fe.lValue.Exp.visit(), fe.id)
 }
 
+func (fe *FieldExpression) analyze(c *Context)  {
+}
+
+
 type FieldCreate struct {
+    expType    interface{}
     id    string
     exp   Node
 }
@@ -296,27 +363,48 @@ func (fc *FieldCreate) visit() string {
     return fmt.Sprintf("fieldCreate: id:%s exp:(%v)", fc.id, fc.exp.Exp.visit())
 }
 
+func (fc *FieldCreate) analyze(c *Context)  {
+}
+
+
 
 type VarDeclaration struct {
-    id1    string
-    id2    string
+    expType    interface{}
+    id    string
+    typeId    string
     Exp    Node
 }
 
-func NewVarDeclaration(identifier1 string, identifier2 string, n *Node) *VarDeclaration {
+func NewVarDeclaration(identifier1 string, typeId string, n *Node) *VarDeclaration {
     return &VarDeclaration{
-        id1: identifier1,
-        id2: identifier2,
+        id: identifier1,
+        typeId: typeId,
         Exp: *n,
     }
 }
 
 func (vd *VarDeclaration) visit() string {
-    return fmt.Sprintf("(varDec: id1:%s id2:%s exp:%s)", vd.id1, vd.id2, vd.Exp.visit())
+    return fmt.Sprintf("(varDec: id:%s typeId:%s exp:%s)", vd.id, vd.typeId, vd.Exp.visit())
+}
+
+func (vd *VarDeclaration) analyze(c *Context)  {
+    vd.Exp.analyze(c)
+    if(vd.typeId != "") {//If type id is declared then we know the type from a lookup!
+        vd.expType = c.lookup(vd.typeId)
+
+        //Check assignable to ?
+        isAssignable(vd.Exp.Exp, vd.expType)
+    } else { // Inference type from init experssion:O
+        vd.expType = vd.Exp.Exp
+    }
+
+    //add type to context
+    c.add(vd)
 }
 
 
 type Identifier struct {
+    expType    interface{}
     id    string
 }
 
@@ -330,7 +418,13 @@ func (id *Identifier) visit() string {
     return fmt.Sprintf("(ID: %s)", id.id)
 }
 
+
+func (id *Identifier) analyze(c *Context)  {
+}
+
+
 type Subscript struct {
+    expType    interface{}
     id          string
     expId        *Node
     subscriptExp Node
@@ -354,7 +448,12 @@ func (se *Subscript) visit() string {
     return str
 }
 
+func (se *Subscript) analyze(c *Context)  {
+}
+
+
 type RecordType struct {
+    expType    interface{}
     decs    []Node
 }
 
@@ -373,7 +472,12 @@ func (rt *RecordType) visit() string {
     return str
 }
 
+func (rt *RecordType) analyze(c *Context)  {
+}
+
+
 type RecordCreate struct {
+    expType    interface{}
     id string
     decs    []Node
 }
@@ -394,9 +498,12 @@ func (rc *RecordCreate) visit() string {
     return str
 }
 
+func (rc *RecordCreate) analyze(c *Context)  {
+}
 
 
 type ArrayType struct {
+    expType    interface{}
     id    string
 }
 
@@ -411,7 +518,14 @@ func (at *ArrayType) visit() string {
 }
 
 
+func (at *ArrayType) analyze(c *Context)  {
+     at.expType = c.lookup(at.id)
+     fmt.Printf("Assigning type %T to arraytype\n", at.expType)
+}
+
+
 type ArrayCreate struct {
+    expType  interface{}
     id    string
     exp1  Node
     exp2  Node
@@ -429,8 +543,13 @@ func (ac *ArrayCreate) visit() string {
     return fmt.Sprintf("(arrCreate: id:%s exp1:%v exp2:%v)", ac.id, ac.exp1.visit(), ac.exp2.visit())
 }
 
+func (ac *ArrayCreate) analyze(c *Context)  {
+}
+
+
 
 type LetExpression struct {
+    expType    interface{}
     decs    []Node
     exps    []Node
 }
@@ -456,7 +575,38 @@ func (le *LetExpression) visit() string {
     return str
 }
 
+func (le *LetExpression) analyze(c *Context)  {
+    newContext := c.createChildContextForBlock()
+    for _, d := range le.decs {
+        td, isTypeDec := d.Exp.(*TypeDeclaration)
+        if(isTypeDec) { //If its a type declaration, add it to the new context
+            newContext.add(td)
+        }
+
+        // typeDec, isTypeDec := d.Exp.(*FuncDeclaration)
+        // if()
+    }
+
+    for _, d := range le.decs {
+        d.analyze(newContext)
+    }
+
+    for _, d := range le.exps {
+        d.analyze(newContext)
+    }
+
+    //If expressions has a body then take the type of the last element
+    if(len(le.exps) > 0) {
+        le.expType = le.exps[len(le.exps)-1].Exp
+    } else {
+        le.expType = VoidType{}
+    }
+}
+
+
+
 type IfThenElseExpression struct {
+    expType    interface{}
     exp1  Node
     exp2  Node
     exp3  Node
@@ -474,7 +624,12 @@ func (itee *IfThenElseExpression) visit() string {
     return fmt.Sprintf("(ifThenElse if:%v then:%v else:%v)", itee.exp1.Exp.visit(), itee.exp2.Exp.visit(), itee.exp3.Exp.visit())
 }
 
+func (itee *IfThenElseExpression) analyze(c *Context)  {
+}
+
+
 type IfThenExpression struct {
+    expType    interface{}
     exp1  Node
     exp2  Node
 }
@@ -490,8 +645,12 @@ func (ite *IfThenExpression) visit() string {
     return fmt.Sprintf("(ifThen if:%v then:%v)", ite.exp1.Exp.visit(), ite.exp2.Exp.visit())
 }
 
+func (ite *IfThenExpression) analyze(c *Context)  {
+}
+
 
 type WhileExpression struct {
+    expType    interface{}
     exp1  Node
     exp2  Node
 }
@@ -507,7 +666,13 @@ func (we *WhileExpression) visit() string {
     return fmt.Sprintf("(whileExp cond:%v do:%v)", we.exp1.Exp.visit(), we.exp2.Exp.visit())
 }
 
+
+func (we *WhileExpression) analyze(c *Context)  {
+}
+
+
 type ForExpression struct {
+    expType    interface{}
     id    string
     exp1  Node
     exp2  Node
@@ -525,4 +690,7 @@ func NewForExpression(id string, exp1 Node, exp2 Node, exp3 Node) *ForExpression
 
 func (fe *ForExpression) visit() string {
     return fmt.Sprintf("(forexp id:%s exp1:%v exp2:%v exp3:%v)", fe.id, fe.exp1.Exp.visit(), fe.exp2.Exp.visit(), fe.exp3.Exp.visit())
+}
+
+func (fe *ForExpression) analyze(c *Context)  {
 }

@@ -40,10 +40,19 @@ func main () {
 	}
 
     // Print AST this is for later
-	for _, stmt := range stmts {
-		fmt.Printf("Printing stmt: %v\n", stmt)
-	}
+	// for _, stmt := range stmts {
+        // fmt.Println("%d statements.", len(stmts))
+		fmt.Printf("Printing AST: %v\n", stmts)
 
+    //Create context wehich is basically a symbol table
+    c := NewContext(nil, nil, false)
+
+    //Pre declare primitives
+    c.predeclarePrimitives()
+    
+    //Begin semantic analysis
+    stmts[0].analyze(c)
+// }
     os.Exit(0)
 }
 

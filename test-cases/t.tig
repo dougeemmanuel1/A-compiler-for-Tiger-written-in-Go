@@ -1,6 +1,6 @@
 /*
 This is a
 multiline comment
- */
+*/
 
-type someid = array of hello
+type someid := array of hello

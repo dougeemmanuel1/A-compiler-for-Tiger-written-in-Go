@@ -7,17 +7,17 @@ import(
 
 type Context struct {
     parent              *Context
-    currentFunction     *Visitor
+    currentFunction     interface{}
     inLoop              bool
-    locals              map[string]*Visitor
+    locals              map[string]interface{}
 }
 
-func NewContext(parent *Context, currentFunction *Visitor, inLoop bool) *Context {
+func NewContext(parent *Context, currentFunction interface{}, inLoop bool) *Context {
     return &Context{
         parent:          parent,
         currentFunction: currentFunction,
         inLoop:          inLoop,
-        locals:          make(map[string]*Visitor),
+        locals:          make(map[string]interface{}),
     }
 }
 
@@ -26,13 +26,22 @@ func (c *Context) createChildContextForBlock() *Context {
     return NewContext(c, c.currentFunction, c.inLoop)
 }
 
+ func (c *Context) predeclarePrimitives() {
+     //Pre declare primitives
+     c.locals["int"] = NewIntegerPrimitive()
+     c.locals["string"] = StringPrimitive{}
+     c.locals["nil"] = NewNil()
+
+     fmt.Printf("map conmtets %v\n", c.locals)
+ }
+
 //Adds a declaration to the current context
 func (c *Context) add(declaration interface{}) {
-    visitor := declaration.(*Visitor)
-    declarationId := resolveDeclarationId(visitor)
-    id, hasKey := c.locals[declarationId]
+    // visitor := declaration.(*Visitor)
+    declarationId := resolveDeclarationId(declaration)
+    _, hasKey := c.locals[declarationId]
     if(hasKey) {
-        fmt.Printf("%s already declared in this scope.\n", id)
+        fmt.Printf("%s already declared in this scope.\n", declarationId)
         os.Exit(3)
     }
 
@@ -45,10 +54,28 @@ func (c *Context) add(declaration interface{}) {
     //     entity = declaration
     // }
 
-    c.locals[declarationId] = visitor
+    fmt.Printf("Dec: %s type: %T\n", declarationId, declaration)
+    c.locals[declarationId] = declaration
 }
 
-func resolveDeclarationId(declaration *Visitor) string {
+func (c *Context) lookup(id string) interface{} {
+    for ; c != nil; c = c.parent {
+        fmt.Printf("Checking for id: %s in %v\n", id, c.locals )
+        e, hasKey := c.locals[id]
+        if(hasKey) {
+            return e
+        }
+    }
+
+    fmt.Fprintf(os.Stderr, "%s was not declared \n.", id)
+    os.Exit(3)
+
+    //Empty return to satisfy condition code will never each this point
+    return Nil{}
+}
+
+
+func resolveDeclarationId(declaration interface{}) string {
     var id string
     typeDec, isTypeDec := declaration.(*TypeDeclaration)
     varDec, isVarDec := declaration.(*VarDeclaration)
@@ -61,5 +88,6 @@ func resolveDeclarationId(declaration *Visitor) string {
     } else if(isFuncDec) {
         id = funcDec.id
     }
+    // fmt.Printf("Resolved dec id: %s \n", id)
     return id
 }

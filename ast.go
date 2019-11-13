@@ -26,8 +26,13 @@ func (n *Node) visit() string {
 	return str
 }
 
+func (n *Node) analyze(c *Context) {
+	n.Exp.analyze(c)
+}
+
 type Visitor interface {
 	visit() string
+	analyze(c *Context)
 }
 
 // NewNode makes a node from a name and a token. The token may be nil.
