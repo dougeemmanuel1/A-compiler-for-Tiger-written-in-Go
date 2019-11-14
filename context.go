@@ -29,19 +29,24 @@ func (c *Context) createChildContextForBlock() *Context {
  func (c *Context) predeclarePrimitives() {
      //Pre declare primitives
      c.locals["int"] = NewIntegerPrimitive()
-     c.locals["string"] = StringPrimitive{}
+     c.locals["string"] = &StringPrimitive{}
      c.locals["nil"] = NewNil()
 
      fmt.Printf("map conmtets %v\n", c.locals)
  }
 
 //Adds a declaration to the current context
-func (c *Context) add(declaration interface{}) {
+func (c *Context) add(identifier string, declaration interface{}) {
     // visitor := declaration.(*Visitor)
-    declarationId := resolveDeclarationId(declaration)
-    _, hasKey := c.locals[declarationId]
+    id := ""
+    if(identifier == "") {
+        id = resolveDeclarationId(declaration)
+    } else {
+        id = identifier
+    }
+    _, hasKey := c.locals[id]
     if(hasKey) {
-        fmt.Printf("%s already declared in this scope.\n", declarationId)
+        fmt.Printf("%s already declared in this scope.\n", id)
         os.Exit(3)
     }
 
@@ -54,11 +59,12 @@ func (c *Context) add(declaration interface{}) {
     //     entity = declaration
     // }
 
-    fmt.Printf("Dec: %s type: %T\n", declarationId, declaration)
-    c.locals[declarationId] = declaration
+    fmt.Printf("Dec: %s type: %T\n", id, declaration)
+    c.locals[id] = declaration
 }
 
 func (c *Context) lookup(id string) interface{} {
+    fmt.Printf("Looking up id:%s\n", id)
     for ; c != nil; c = c.parent {
         fmt.Printf("Checking for id: %s in %v\n", id, c.locals )
         e, hasKey := c.locals[id]

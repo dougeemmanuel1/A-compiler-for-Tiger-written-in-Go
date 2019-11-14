@@ -16,6 +16,11 @@ type Node struct {
 	Exp   	 Visitor
 }
 
+type Visitor interface {
+	visit() string
+	analyze(c *Context)
+}
+
 func (n *Node) visit() string {
 	str := ""
 	if(n.Exp != nil) {
@@ -28,11 +33,6 @@ func (n *Node) visit() string {
 
 func (n *Node) analyze(c *Context) {
 	n.Exp.analyze(c)
-}
-
-type Visitor interface {
-	visit() string
-	analyze(c *Context)
 }
 
 // NewNode makes a node from a name and a token. The token may be nil.

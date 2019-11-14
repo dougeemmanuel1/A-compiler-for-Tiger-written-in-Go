@@ -50,21 +50,21 @@ func (i *Integer) analyze(c *Context)  {
 
 type InfixExpression struct {
     expType    interface{}
-    OpType Op
-    Left Node
-    Right  Node
+    opType Op
+    leftNode Node
+    rightNode  Node
 }
 
-func NewInfixExpression(opType Op, left Node , right Node) *InfixExpression {
+func NewInfixExpression(opType Op, leftNode Node , rightNode Node) *InfixExpression {
     return &InfixExpression{
-        OpType: opType,
-        Left: left,
-        Right: right,
+        opType: opType,
+        leftNode: leftNode,
+        rightNode: rightNode,
     }
 }
 
 func (ie *InfixExpression) visit() string {
-    return fmt.Sprintf("(%s %v %v)", resolveOp(ie.OpType), string(ie.Left.Exp.visit()), ie.Right.Exp.visit())
+    return fmt.Sprintf("(%s %v %v)", resolveOp(ie.opType), string(ie.leftNode.Exp.visit()), ie.rightNode.Exp.visit())
 
 }
 
@@ -106,22 +106,22 @@ func resolveOp(opType Op) string {
 
 type Negation struct {
     expType    interface{}
-    Exp *Node
+    n *Node
 }
 
 func NewNegation(exp *Node) *Negation {
     return &Negation{
-        Exp: exp,
+        n: exp,
     }
 }
 
 func (ne *Negation) visit() string {
     var str string
-    if(ne.Exp == nil) {
-        fmt.Println("Exp is null")
-        str = string(ne.Exp.Token.Lexeme)
+    if(ne.n == nil) {
+        fmt.Println("n is null")
+        str = string(ne.n.Token.Lexeme)
     } else {
-        str = fmt.Sprintf("(NEG %v)", ne.Exp.visit())
+        str = fmt.Sprintf("(NEG %v)", ne.n.visit())
     }
     return str
 }
@@ -132,7 +132,7 @@ func (ne *Negation) analyze(c *Context)  {
 
 type SeqExpression struct {
     expType    interface{}
-    Exps []Node
+    nodes []Node
 }
 
 func NewSeqExpression(expressions []Node) *SeqExpression {
@@ -141,13 +141,13 @@ func NewSeqExpression(expressions []Node) *SeqExpression {
         // copiedExpressionContents = append(copiedExpressionContents, *e)
     // }
     return &SeqExpression{
-        Exps: expressions,
+        nodes: expressions,
     }
 }
 
 func (se *SeqExpression) visit() string {
     str := "(seqexp "
-    for _, n := range se.Exps {
+    for _, n := range se.nodes {
         if(n.Exp == nil) {
             str += string(n.Token.Lexeme)
         } else {
@@ -225,19 +225,19 @@ func (ni *Nil) analyze(c *Context)  {
 type CallExpression struct {
     expType    interface{}
     name    string
-    exps    []Node
+    paramNodes    []Node
 }
 
-func NewCallExpression(name string, exps []Node) *CallExpression {
+func NewCallExpression(name string, paramNodes []Node) *CallExpression {
     return &CallExpression{
         name: name,
-        exps: exps,
+        paramNodes: paramNodes,
     }
 }
 
 func (ce *CallExpression) visit() string {
     str := fmt.Sprintf("(callExp: %s", ce.name)
-    for i, n := range ce.exps {
+    for i, n := range ce.paramNodes {
         if(n.Exp == nil) {
             str += string(n.Token.Lexeme)
         } else {
@@ -255,22 +255,22 @@ func (ce *CallExpression) analyze(c *Context)  {
 type TypeDeclaration struct {
     expType    interface{}
     id    string
-    Exp    Node
+    n    Node
 }
 
 func NewTypeDeclaration(identifier string, n *Node) *TypeDeclaration {
     return &TypeDeclaration{
         id: identifier,
-        Exp: *n,
+        n: *n,
     }
 }
 
 func (td *TypeDeclaration) visit() string {
-    return fmt.Sprintf("(tyDec: type:%s %s)", td.id, td.Exp.visit())
+    return fmt.Sprintf("(tyDec: type:%s %s)", td.id, td.n.visit())
 }
 
 func (td *TypeDeclaration) analyze(c *Context)  {
-    td.Exp.analyze(c)
+    td.n.Exp.analyze(c)
 }
 
 
@@ -278,7 +278,7 @@ type FuncDeclaration struct {
     expType    interface{}
     id     string
     id2     string
-    decs   []Node
+    declarationNodes   []Node
     exp    Node
 }
 
@@ -286,14 +286,14 @@ func NewFuncDeclaration(id string, id2 string, declarations []Node, n Node) *Fun
     return &FuncDeclaration{
         id: id,
         id2: id2,
-        decs: declarations,
+        declarationNodes: declarations,
         exp: n,
     }
 }
 
 func (fd *FuncDeclaration) visit() string {
-    str := fmt.Sprintf("(funDec: id:%s id2:%s decs:", fd.id, fd.id2)
-    for _, n := range fd.decs {
+    str := fmt.Sprintf("(funDec: id:%s id2:%s declarationNodes:", fd.id, fd.id2)
+    for _, n := range fd.declarationNodes {
         str += fmt.Sprintf("(%v)\n", n.Exp.visit())
     }
     str += fmt.Sprintf("exp:%s)", fd.exp.Exp.visit())
@@ -370,9 +370,9 @@ func (fc *FieldCreate) analyze(c *Context)  {
 
 type VarDeclaration struct {
     expType    interface{}
-    id    string
-    typeId    string
-    Exp    Node
+    id         string
+    typeId     string
+    Exp        Node
 }
 
 func NewVarDeclaration(identifier1 string, typeId string, n *Node) *VarDeclaration {
@@ -392,14 +392,15 @@ func (vd *VarDeclaration) analyze(c *Context)  {
     if(vd.typeId != "") {//If type id is declared then we know the type from a lookup!
         vd.expType = c.lookup(vd.typeId)
 
+        fmt.Printf("Type in lookup was %T\n", vd.expType)
         //Check assignable to ?
-        isAssignable(vd.Exp.Exp, vd.expType)
+        isAssignable(c, vd.Exp.Exp, vd.expType)
     } else { // Inference type from init experssion:O
         vd.expType = vd.Exp.Exp
     }
 
     //add type to context
-    c.add(vd)
+    c.add(vd.id, vd)
 }
 
 
@@ -454,18 +455,18 @@ func (se *Subscript) analyze(c *Context)  {
 
 type RecordType struct {
     expType    interface{}
-    decs    []Node
+    declarationNodes    []Node
 }
 
-func NewRecordType(decs []Node) *RecordType {
+func NewRecordType(declarationNodes []Node) *RecordType {
     return &RecordType{
-        decs: decs,
+        declarationNodes: declarationNodes,
     }
 }
 
 func (rt *RecordType) visit() string {
-    str := fmt.Sprintf("(recTy: decs:(")
-    for _, n := range rt.decs {
+    str := fmt.Sprintf("(recTy: declarationNodes:(")
+    for _, n := range rt.declarationNodes {
         str += fmt.Sprintf("%v",n.Exp.visit())
     }
     str += ")"
@@ -479,19 +480,19 @@ func (rt *RecordType) analyze(c *Context)  {
 type RecordCreate struct {
     expType    interface{}
     id string
-    decs    []Node
+    declarationNodes    []Node
 }
 
-func NewRecordCreate(id string, decs []Node) *RecordCreate {
+func NewRecordCreate(id string, declarationNodes []Node) *RecordCreate {
     return &RecordCreate{
         id: id,
-        decs: decs,
+        declarationNodes: declarationNodes,
     }
 }
 
 func (rc *RecordCreate) visit() string {
-    str := fmt.Sprintf("(recCreate: id:%s decs:(", rc.id)
-    for _, n := range rc.decs {
+    str := fmt.Sprintf("(recCreate: id:%s declarationNodes:(", rc.id)
+    for _, n := range rc.declarationNodes {
         str += fmt.Sprintf("%v",n.Exp.visit())
     }
     str += ")\n"
@@ -526,44 +527,41 @@ func (at *ArrayType) analyze(c *Context)  {
 
 type ArrayCreate struct {
     expType  interface{}
-    id    string
-    exp1  Node
-    exp2  Node
+    typeId    string
+    subscriptNode  Node
+    expNode  Node
 }
 
-func NewArrayCreate(identifier string, exp1 Node, exp2 Node) *ArrayCreate {
+func NewArrayCreate(typeIdentifier string, subscriptNode Node, expNode Node) *ArrayCreate {
     return &ArrayCreate{
-        id: identifier,
-        exp1: exp1,
-        exp2: exp2,
+        typeId: typeIdentifier,
+        subscriptNode: subscriptNode,
+        expNode: expNode,
     }
 }
 
 func (ac *ArrayCreate) visit() string {
-    return fmt.Sprintf("(arrCreate: id:%s exp1:%v exp2:%v)", ac.id, ac.exp1.visit(), ac.exp2.visit())
+    return fmt.Sprintf("(arrCreate: typeId:%s subscriptNode:%v expNode:%v)", ac.typeId, ac.subscriptNode.visit(), ac.expNode.visit())
 }
 
-func (ac *ArrayCreate) analyze(c *Context)  {
-}
-
-
+func (ac *ArrayCreate) analyze(c *Context)  {}
 
 type LetExpression struct {
     expType    interface{}
-    decs    []Node
+    declarationNodes    []Node
     exps    []Node
 }
 
 func NewLetExpression(declarations []Node, expressions []Node) *LetExpression {
     return &LetExpression{
-        decs: declarations,
+        declarationNodes: declarations,
         exps: expressions,
     }
 }
 
 func (le *LetExpression) visit() string {
-    str := fmt.Sprintf("(letExp: decs:(")
-    for _, n := range le.decs {
+    str := fmt.Sprintf("(letExp: declarationNodes:(")
+    for _, n := range le.declarationNodes {
         str += fmt.Sprintf("\n %v",n.Exp.visit())
     }
     str += fmt.Sprintf(")\n(exps: ")
@@ -577,23 +575,25 @@ func (le *LetExpression) visit() string {
 
 func (le *LetExpression) analyze(c *Context)  {
     newContext := c.createChildContextForBlock()
-    for _, d := range le.decs {
+    for _, d := range le.declarationNodes {
         td, isTypeDec := d.Exp.(*TypeDeclaration)
         if(isTypeDec) { //If its a type declaration, add it to the new context
-            newContext.add(td)
+            newContext.add(td.id, td.n.Exp)
         }
 
         // typeDec, isTypeDec := d.Exp.(*FuncDeclaration)
         // if()
     }
 
-    for _, d := range le.decs {
+    for _, d := range le.declarationNodes {
         d.analyze(newContext)
     }
 
     for _, d := range le.exps {
         d.analyze(newContext)
     }
+
+    //Check for no recursive type cycles with out record types in decs..
 
     //If expressions has a body then take the type of the last element
     if(len(le.exps) > 0) {
@@ -607,21 +607,21 @@ func (le *LetExpression) analyze(c *Context)  {
 
 type IfThenElseExpression struct {
     expType    interface{}
-    exp1  Node
-    exp2  Node
-    exp3  Node
+    condNode  Node
+    thenNode  Node
+    elseNode  Node
 }
 
-func NewIfThenElseExpression(exp1 Node, exp2 Node, exp3 Node) *IfThenElseExpression {
+func NewIfThenElseExpression(condNode Node, thenNode Node, elseNode Node) *IfThenElseExpression {
     return &IfThenElseExpression{
-        exp1:exp1,
-        exp2:exp2,
-        exp3:exp3,
+        condNode:condNode,
+        thenNode:thenNode,
+        elseNode:elseNode,
     }
 }
 
 func (itee *IfThenElseExpression) visit() string {
-    return fmt.Sprintf("(ifThenElse if:%v then:%v else:%v)", itee.exp1.Exp.visit(), itee.exp2.Exp.visit(), itee.exp3.Exp.visit())
+    return fmt.Sprintf("(ifThenElse if:%v then:%v else:%v)", itee.condNode.Exp.visit(), itee.thenNode.Exp.visit(), itee.elseNode.Exp.visit())
 }
 
 func (itee *IfThenElseExpression) analyze(c *Context)  {
@@ -630,19 +630,19 @@ func (itee *IfThenElseExpression) analyze(c *Context)  {
 
 type IfThenExpression struct {
     expType    interface{}
-    exp1  Node
-    exp2  Node
+    condNode  Node
+    thenNode  Node
 }
 
-func NewIfThenExpression(exp1 Node, exp2 Node) *IfThenExpression {
+func NewIfThenExpression(condNode Node, thenNode Node) *IfThenExpression {
     return &IfThenExpression{
-        exp1:exp1,
-        exp2:exp2,
+        condNode:condNode,
+        thenNode:thenNode,
     }
 }
 
 func (ite *IfThenExpression) visit() string {
-    return fmt.Sprintf("(ifThen if:%v then:%v)", ite.exp1.Exp.visit(), ite.exp2.Exp.visit())
+    return fmt.Sprintf("(ifThen if:%v then:%v)", ite.condNode.Exp.visit(), ite.thenNode.Exp.visit())
 }
 
 func (ite *IfThenExpression) analyze(c *Context)  {
