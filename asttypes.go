@@ -3,6 +3,7 @@ package main
 import (
     "fmt"
     _ "github.com/timtadh/lexmachine"
+    "os"
 )
 
 //Define operation enum
@@ -202,6 +203,10 @@ func (as *Assignment) visit() string {
 }
 
 func (as *Assignment) analyze(c *Context)  {
+    as.lValue.Exp.analyze(c)
+    as.exp.Exp.analyze(c)
+    fmt.Printf("Is exp:%T assignables to expType:%T (BEFORE expansion)\n", as.lValue.Exp, as.exp.Exp)
+    isAssignable(c, as.lValue.Exp, as.exp.Exp)
 }
 
 
@@ -249,6 +254,7 @@ func (ce *CallExpression) visit() string {
 }
 
 func (ce *CallExpression) analyze(c *Context)  {
+
 }
 
 
@@ -275,34 +281,51 @@ func (td *TypeDeclaration) analyze(c *Context)  {
 
 
 type FuncDeclaration struct {
-    expType    interface{}
-    id     string
-    id2     string
+    expType            interface{}
+    id                 string
+    returnType         string
+    body                Node
+    bodyContext        *Context
     declarationNodes   []Node
-    exp    Node
+
 }
 
-func NewFuncDeclaration(id string, id2 string, declarations []Node, n Node) *FuncDeclaration {
+func NewFuncDeclaration(id string, returnType string, declarations []Node, n Node) *FuncDeclaration {
     return &FuncDeclaration{
         id: id,
-        id2: id2,
+        returnType: returnType,
         declarationNodes: declarations,
-        exp: n,
+        body: n,
     }
 }
 
 func (fd *FuncDeclaration) visit() string {
-    str := fmt.Sprintf("(funDec: id:%s id2:%s declarationNodes:", fd.id, fd.id2)
+    str := fmt.Sprintf("(funDec: id:%s returnType:%s declarationNodes:", fd.id, fd.returnType)
     for _, n := range fd.declarationNodes {
         str += fmt.Sprintf("(%v)\n", n.Exp.visit())
     }
-    str += fmt.Sprintf("exp:%s)", fd.exp.Exp.visit())
+    str += fmt.Sprintf("body:%s)", fd.body.Exp.visit())
     return str
 }
 
 func (fd *FuncDeclaration) analyze(c *Context)  {
+    for _, decNode := range fd.declarationNodes {
+        decNode.Exp.analyze(c)
+    }
+
+    isAssignable(c, fd.body.Exp, getType(c, fd))
 }
 
+func (fd *FuncDeclaration) analyzeSignature(c *Context) {
+    fd.bodyContext = c.createChildContextForFunctionBody(fd)
+
+    for _, decNode := range fd.declarationNodes {
+        decNode.Exp.analyze(fd.bodyContext)
+    }
+
+    //Remove body context, useless now
+    fd.bodyContext = nil
+}
 
 type FieldDeclaration struct {
     expType    interface{}
@@ -322,13 +345,14 @@ func (fid *FieldDeclaration) visit() string {
 }
 
 func (fid *FieldDeclaration) analyze(c *Context)  {
+    c.add(fid.id, fid)
 }
 
 
 type FieldExpression struct {
     expType    interface{}
-    lValue    Node
     id        string
+    lValue    Node
 }
 
 func NewFieldExpression(lValue Node, id string) *FieldExpression {
@@ -343,6 +367,18 @@ func (fe *FieldExpression) visit() string {
 }
 
 func (fe *FieldExpression) analyze(c *Context)  {
+    fe.lValue.Exp.analyze(c)
+    isRecordType(getType(c, fe.lValue.Exp))
+
+    //Check if this record type even has a member named <id>
+    //+ Dont have to type check since we confirmed its a record type earlier
+
+    rt := getType(c, fe.lValue.Exp).(*RecordType)
+    if(!rt.definesId(fe.id)) {
+        fmt.Fprintf(os.Stderr, "Record does not define %s.\n", fe.id)
+        os.Exit(3)
+    }
+
 }
 
 
@@ -455,18 +491,56 @@ func (se *Subscript) analyze(c *Context)  {
 
 type RecordType struct {
     expType    interface{}
-    declarationNodes    []Node
+    fieldDecNodes    []Node
 }
 
-func NewRecordType(declarationNodes []Node) *RecordType {
+func NewRecordType(fieldDecNodes []Node) *RecordType {
     return &RecordType{
-        declarationNodes: declarationNodes,
+        fieldDecNodes: fieldDecNodes,
     }
 }
 
+func (rt *RecordType) nodesAsFieldDecs() []*FieldDeclaration {
+    var interfaceList []interface{}
+    var fdList        []*FieldDeclaration
+
+    for _, fdNode := range rt.fieldDecNodes {
+        interfaceList = append(interfaceList, fdNode.Exp)
+    }
+
+    //Cast all to field decs and return that
+    for _, fdInterface := range interfaceList {
+        fd := fdInterface.(*FieldDeclaration)
+        fdList = append(fdList, fd)
+    }
+    return fdList
+}
+
+func (rt *RecordType) definesId(id string) bool {
+    doesDeclareId := false
+    for _, fd := range rt.nodesAsFieldDecs() {
+        if(fd.id == id) {
+            doesDeclareId = true
+            continue
+        }
+    }
+    return doesDeclareId
+}
+
+func (rt *RecordType) getTypeOfRecordMember(c *Context, id string) interface{} {
+    var t interface{}
+    for _, fd := range rt.nodesAsFieldDecs() {
+        if(fd.id == id) {
+            t = c.lookup(fd.fieldType)
+            continue
+        }
+    }
+    return t
+}
+
 func (rt *RecordType) visit() string {
-    str := fmt.Sprintf("(recTy: declarationNodes:(")
-    for _, n := range rt.declarationNodes {
+    str := fmt.Sprintf("(recTy: fieldDecNodes:(")
+    for _, n := range rt.fieldDecNodes {
         str += fmt.Sprintf("%v",n.Exp.visit())
     }
     str += ")"
@@ -474,25 +548,38 @@ func (rt *RecordType) visit() string {
 }
 
 func (rt *RecordType) analyze(c *Context)  {
+    //Keep track of fields declared so we can err, when
+    //they try to redeclare a field
+    var declaredFields []string
+
+    for _, fieldDec := range rt.nodesAsFieldDecs() {
+        //get field list as list of interfaces so we can type assert and access id
+        //if it hasnt been used add it to the list of used identifiers for fields
+        fieldHasNotBeenUsed(fieldDec.id, declaredFields)
+
+        declaredFields = append(declaredFields, fieldDec.id)
+
+        fieldDec.analyze(c)
+    }
 }
 
 
 type RecordCreate struct {
     expType    interface{}
     id string
-    declarationNodes    []Node
+    fieldCreateNodes    []Node
 }
 
-func NewRecordCreate(id string, declarationNodes []Node) *RecordCreate {
+func NewRecordCreate(id string, fieldCreateNodes []Node) *RecordCreate {
     return &RecordCreate{
         id: id,
-        declarationNodes: declarationNodes,
+        fieldCreateNodes: fieldCreateNodes,
     }
 }
 
 func (rc *RecordCreate) visit() string {
-    str := fmt.Sprintf("(recCreate: id:%s declarationNodes:(", rc.id)
-    for _, n := range rc.declarationNodes {
+    str := fmt.Sprintf("(recCreate: id:%s fieldCreateNodes:(", rc.id)
+    for _, n := range rc.fieldCreateNodes {
         str += fmt.Sprintf("%v",n.Exp.visit())
     }
     str += ")\n"
@@ -500,6 +587,11 @@ func (rc *RecordCreate) visit() string {
 }
 
 func (rc *RecordCreate) analyze(c *Context)  {
+    recCreate := c.lookup(rc.id)
+    isRecordType(recCreate)
+    // for _, fieldCreate := range rc.fieldCreateNodes {
+
+    // }
 }
 
 
@@ -580,9 +672,27 @@ func (le *LetExpression) analyze(c *Context)  {
         if(isTypeDec) { //If its a type declaration, add it to the new context
             newContext.add(td.id, td.n.Exp)
         }
+    }
 
-        // typeDec, isTypeDec := d.Exp.(*FuncDeclaration)
-        // if()
+    for _, d := range le.declarationNodes {
+        fd, isFuncDec := d.Exp.(*FuncDeclaration)
+        if(isFuncDec) { //If its a fimc declaration, add it to the new context
+            fd.analyzeSignature(newContext)
+        }
+    }
+
+    for _, d := range le.declarationNodes {
+        fd, isFuncDec := d.Exp.(*FuncDeclaration)
+        if(isFuncDec) { //If its a fimc declaration, add it to the new context
+            newContext.add(fd.id, fd)
+        }
+    }
+
+    for _, d := range le.declarationNodes {
+        td, isTypeDec := d.Exp.(*TypeDeclaration)
+        if(isTypeDec) { //If its a type declaration, add it to the new context
+            newContext.add(td.id, td.n.Exp)
+        }
     }
 
     for _, d := range le.declarationNodes {
@@ -594,13 +704,6 @@ func (le *LetExpression) analyze(c *Context)  {
     }
 
     //Check for no recursive type cycles with out record types in decs..
-
-    //If expressions has a body then take the type of the last element
-    if(len(le.exps) > 0) {
-        le.expType = le.exps[len(le.exps)-1].Exp
-    } else {
-        le.expType = VoidType{}
-    }
 }
 
 

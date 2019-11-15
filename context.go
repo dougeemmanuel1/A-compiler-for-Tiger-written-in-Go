@@ -26,6 +26,12 @@ func (c *Context) createChildContextForBlock() *Context {
     return NewContext(c, c.currentFunction, c.inLoop)
 }
 
+
+func (c *Context) createChildContextForFunctionBody(currentFunction interface{}) *Context {
+    //No longer in a loop when entering functions
+    return NewContext(c, currentFunction, false)
+}
+
  func (c *Context) predeclarePrimitives() {
      //Pre declare primitives
      c.locals["int"] = NewIntegerPrimitive()
@@ -73,7 +79,7 @@ func (c *Context) lookup(id string) interface{} {
         }
     }
 
-    fmt.Fprintf(os.Stderr, "%s was not declared \n.", id)
+    fmt.Fprintf(os.Stderr, "%s was not declared. \n", id)
     os.Exit(3)
 
     //Empty return to satisfy condition code will never each this point
