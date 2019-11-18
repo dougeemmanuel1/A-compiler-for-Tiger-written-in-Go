@@ -38,10 +38,10 @@ func toInt(s string)  int {
 %token  NIL OF THEN TO TYPE VAR WHILE
 %token  ID INTLIT STRINGLIT NEWLINE
 
-%type <NodeList> exp_list_semi exp_list_comma Decs fieldDecs fieldCreates
-%type <ast> exp seqExp negation callExp infixExp arrCreate recCreate assignment
-%type <ast> funDec FUNCTION ty arrTy recTy ARRAY fieldDec
-%type <ast> fieldCreate ifThenElse ifThen whileExp forExp BREAK letExp lValue
+%type <NodeList> exp_list_semi exp_list_comma Decs Params Bindings
+%type <ast> exp seqExp negation callExp infixExp arrExp recordExp assignment
+%type <ast> funDec FUNCTION ty arrTy recTy ARRAY Param
+%type <ast> Binding ifThenElse whileExp forExp BREAK letExp lValue
 %type <ast> NIL  subscript fieldExp Dec tyDec varDec
 %type <token> ID INTLIT STRINGLIT
 %start Program
@@ -66,22 +66,22 @@ ty          : ID       { $$ = NewNode("ID", $1, NewIdentifier(string($1.Lexeme))
 arrTy       : ARRAY OF ID { $$ = NewNode("arrTy", nil, NewArrayType(string($3.Lexeme))) }
             ;
 
-recTy       : LCURLY fieldDecs RCURLY  { $$ = NewNode("sad",nil, NewRecordType($2)) }
+recTy       : LCURLY Params RCURLY  { $$ = NewNode("sad",nil, NewRecordType($2)) }
             | LCURLY RCURLY  { $$ = NewNode("recTy", nil, NewRecordType([]Node{})) }
             ;
 
-fieldDecs   : /* episoln */         {  $$ = []Node{} }
-            | fieldDecs fieldDec { $$ = append($$, *$2) }
-            | fieldDecs COMMA fieldDec { $$ = append($$, *$3) }
+Params   : /* episoln */         {  $$ = []Node{} }
+            | Params Param { $$ = append($$, *$2) }
+            | Params COMMA Param { $$ = append($$, *$3) }
             ;
 
-fieldDec    : ID COLON ID { $$ = NewNode("fieldDec", nil, NewFieldDeclaration(string($1.Lexeme), string($3.Lexeme))) }
+Param       : ID COLON ID { $$ = NewNode("Param", nil, NewParam(string($1.Lexeme), string($3.Lexeme))) }
             ;
 
-funDec      : FUNCTION ID LPAREN fieldDecs RPAREN EQUALS exp   { $$ = NewNode("funDec", nil, NewFuncDeclaration(string($2.Lexeme), "", $4,  *$7)) }
-            | FUNCTION ID LPAREN RPAREN EQUALS exp             { $$ = NewNode("funDec", nil, NewFuncDeclaration(string($2.Lexeme), "", []Node{}, *$6)) }
-            | FUNCTION ID LPAREN fieldDecs RPAREN COLON ID EQUALS exp  { $$ = NewNode("funDec", nil, NewFuncDeclaration(string($2.Lexeme), string($7.Lexeme), $4, *$9)) }
-            | FUNCTION ID LPAREN RPAREN COLON ID EQUALS exp  { $$ = NewNode("funDec", nil, NewFuncDeclaration(string($2.Lexeme), string($6.Lexeme), []Node{}, *$8)) }
+funDec      : FUNCTION ID LPAREN Params RPAREN EQUALS exp   { $$ = NewNode("funDec", nil, NewFuncDeclaration(string($2.Lexeme), $4, "", *$7)) }
+            | FUNCTION ID LPAREN RPAREN EQUALS exp             { $$ = NewNode("funDec", nil, NewFuncDeclaration(string($2.Lexeme), []Node{}, "", *$6)) }
+            | FUNCTION ID LPAREN Params RPAREN COLON ID EQUALS exp  { $$ = NewNode("funDec", nil, NewFuncDeclaration(string($2.Lexeme), $4, string($7.Lexeme), *$9)) }
+            | FUNCTION ID LPAREN RPAREN COLON ID EQUALS exp  { $$ = NewNode("funDec", nil, NewFuncDeclaration(string($2.Lexeme), []Node{}, string($6.Lexeme), *$8)) }
             ;
 
 varDec      : VAR ID COLONEQUALS exp { $$ = NewNode("varDec", nil, NewVarDeclaration(string($2.Lexeme), "", $4)) }
@@ -93,7 +93,7 @@ subscript   : lValue LBRACKET exp RBRACKET { $$ = NewNode("subscript", nil, NewS
             | ID LBRACKET exp RBRACKET  { $$ =  NewNode("subscript", nil, NewSubscriptExpression(string($1.Lexeme), nil, *$3)) }/*  verbose subscript to force reduce   */
             ;
 
-arrCreate   : ID LBRACKET exp RBRACKET OF exp { $$ = NewNode("arrCreate", nil, NewArrayCreate(string($1.Lexeme), *$3, *$6)) }
+arrExp   : ID LBRACKET exp RBRACKET OF exp { $$ = NewNode("arrExp", nil, NewArrayExp(string($1.Lexeme), *$3, *$6)) }
             ;
 
 lValue      : ID                { $$ = NewNode("ID", $1, NewIdentifier(string($1.Lexeme))) }
@@ -101,7 +101,7 @@ lValue      : ID                { $$ = NewNode("ID", $1, NewIdentifier(string($1
             | fieldExp          { $$ = $1 }
             ;
 
-fieldExp    : lValue DOT ID     { $$ = NewNode("fieldExp", nil, NewFieldExpression(*$1, string($3.Lexeme)))}
+fieldExp    : lValue DOT ID     { $$ = NewNode("fieldExp", nil, NewMemberExp(*$1, string($3.Lexeme)))}
             ;
 
 exp_list_semi : /* episoln */        {  $$ = []Node{} }
@@ -122,11 +122,10 @@ exp         : NIL               { $$ = NewNode("nil", nil, NewNil()) }
             | negation          { $$ = $1 }
             | callExp           { $$ = $1 }
             | infixExp          { $$ = $1 }
-            | arrCreate         { $$ = $1 }
-            | recCreate         { $$ = $1 }
+            | arrExp         { $$ = $1 }
+            | recordExp         { $$ = $1 }
             | assignment        { $$ = $1 }
             | ifThenElse        { $$ = $1 }
-            | ifThen            { $$ = $1 }
             | whileExp          { $$ = $1 }
             | forExp            { $$ = $1 }
             | BREAK             { $$ = $1 }
@@ -157,24 +156,22 @@ infixExp    : exp STAR exp              { $$ = NewNode("MUL", nil, NewInfixExpre
             | exp BAR exp               { $$ = NewNode("DIV", nil, NewInfixExpression(Op_OR,     *$1, *$3)) }
             ;
 
-recCreate   : ID LCURLY fieldCreates RCURLY { $$ = NewNode("recCreate", nil, NewRecordCreate(string($1.Lexeme), $3)) }
-            | ID LCURLY RCURLY  { $$ = NewNode("recCreate", nil, NewRecordCreate(string($1.Lexeme), []Node{})) }
+recordExp   : ID LCURLY Bindings RCURLY { $$ = NewNode("recordExp", nil, NewRecordExp(string($1.Lexeme), $3)) }
+            | ID LCURLY RCURLY  { $$ = NewNode("recordExp", nil, NewRecordExp(string($1.Lexeme), []Node{})) }
             ;
 
-fieldCreates: fieldCreates COMMA fieldCreate   { $$ = append($$, *$3) }
-            | fieldCreate   { $$ = append($$, *$1) }
+Bindings    : Bindings COMMA Binding   { $$ = append($$, *$3) }
+            | Binding   { $$ = append($$, *$1) }
             ;
 
-fieldCreate : ID EQUALS exp { $$ = NewNode("fieldCreate", nil, NewFieldCreate(string($1.Lexeme), *$3)) }
+Binding : ID EQUALS exp { $$ = NewNode("Binding", nil, NewBinding(string($1.Lexeme), *$3)) }
             ;
 
 assignment  : lValue COLONEQUALS exp    { $$ = NewNode("assignment", nil, NewAssignment(*$1, *$3))}
             ;
 
-ifThenElse  : IF exp THEN exp ELSE exp  { $$ = NewNode("Iftheneelse", nil, NewIfThenElseExpression(*$2, *$4, *$6)) }
-            ;
-
-ifThen      : IF exp THEN exp { $$ = NewNode("Ifthen", nil, NewIfThenExpression(*$2, *$4)) }
+ifThenElse  : IF exp THEN exp ELSE exp  { $$ = NewNode("Iftheneelse", nil, NewIfThenElseExpression(*$2, *$4, $6)) }
+            | IF exp THEN exp           { $$ = NewNode("Iftheneelse", nil, NewIfThenElseExpression(*$2, *$4, nil)) }
             ;
 
 whileExp    : WHILE exp DO exp { $$ = NewNode("whileExp", nil, NewWhileExpression(*$2, *$4)) }

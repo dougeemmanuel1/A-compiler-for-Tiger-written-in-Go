@@ -19,6 +19,7 @@ type Node struct {
 type Visitor interface {
 	visit() string
 	analyze(c *Context)
+	isReadOnly() bool
 }
 
 func (n *Node) visit() string {

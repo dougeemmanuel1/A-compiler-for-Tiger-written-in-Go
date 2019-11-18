@@ -27,12 +27,16 @@ func (c *Context) createChildContextForBlock() *Context {
 }
 
 
-func (c *Context) createChildContextForFunctionBody(currentFunction interface{}) *Context {
+func (c *Context) createChildContextForFunctionBody() *Context {
     //No longer in a loop when entering functions
-    return NewContext(c, currentFunction, false)
+    return NewContext(c, nil, false)
 }
 
- func (c *Context) predeclarePrimitives() {
+func (c *Context) createChildContextForLoop() *Context {
+    return NewContext(c, c.currentFunction, true)
+}
+
+func (c *Context) predeclarePrimitives() {
      //Pre declare primitives
      c.locals["int"] = NewIntegerPrimitive()
      c.locals["string"] = &StringPrimitive{}
@@ -51,7 +55,12 @@ func (c *Context) add(identifier string, declaration interface{}) {
         id = identifier
     }
     _, hasKey := c.locals[id]
-    if(hasKey) {
+
+    _, isVarDec := declaration.(*VarDeclaration)
+
+    if(hasKey && isVarDec) {
+        //empty case
+    } else if(hasKey) {
         fmt.Printf("%s already declared in this scope.\n", id)
         os.Exit(3)
     }
@@ -65,7 +74,7 @@ func (c *Context) add(identifier string, declaration interface{}) {
     //     entity = declaration
     // }
 
-    fmt.Printf("Dec: %s type: %T\n", id, declaration)
+    fmt.Printf("Adding Dec: %s type: %T\n", id, declaration)
     c.locals[id] = declaration
 }
 

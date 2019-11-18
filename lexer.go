@@ -137,7 +137,7 @@ func skip(*lexmachine.Scanner, *machines.Match) (interface{}, error) {
 
 //Special action i created when you reach a newline character.
 //It increments the yylineno var declared in the tiger.y file and ultimtealy
-//generated in the y.go file. 
+//generated in the y.go file.
 func newline(*lexmachine.Scanner, *machines.Match) (interface{}, error) {
     yylineno = yylineno + 1
     // fmt.Println(yylineno)
