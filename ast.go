@@ -20,6 +20,7 @@ type Visitor interface {
 	visit() string
 	analyze(c *Context)
 	isReadOnly() bool
+	getId() string
 }
 
 func (n *Node) visit() string {

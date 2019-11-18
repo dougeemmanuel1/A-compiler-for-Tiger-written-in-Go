@@ -84,8 +84,8 @@ funDec      : FUNCTION ID LPAREN Params RPAREN EQUALS exp   { $$ = NewNode("funD
             | FUNCTION ID LPAREN RPAREN COLON ID EQUALS exp  { $$ = NewNode("funDec", nil, NewFuncDeclaration(string($2.Lexeme), []Node{}, string($6.Lexeme), *$8)) }
             ;
 
-varDec      : VAR ID COLONEQUALS exp { $$ = NewNode("varDec", nil, NewVarDeclaration(string($2.Lexeme), "", $4)) }
-            | VAR ID COLON ID COLONEQUALS exp { $$ = NewNode("varDec", nil, NewVarDeclaration(string($2.Lexeme), string($4.Lexeme), $6)) }
+varDec      : VAR ID COLONEQUALS exp { $$ = NewNode("varDec", nil, NewVariable(string($2.Lexeme), "", $4)) }
+            | VAR ID COLON ID COLONEQUALS exp { $$ = NewNode("varDec", nil, NewVariable(string($2.Lexeme), string($4.Lexeme), $6)) }
             ;
 
 

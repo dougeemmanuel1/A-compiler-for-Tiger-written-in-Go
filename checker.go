@@ -6,7 +6,8 @@ import (
 )
 
 func performCheck(cond bool, err string) {
-    if(cond) {
+    fmt.Printf("Cond = %t\n", cond)
+    if(!cond) {
         fmt.Fprintf(os.Stderr, err + "\n")
         os.Exit(3)
     }
@@ -29,6 +30,8 @@ func getType(c *Context, e interface{}) interface{} {
         expressionType = v
     case *StringPrimitive:
         expressionType = v
+    case *Nil:
+        expressionType = &Nil{}
     case *VoidType:
         expressionType = v
     case *RecordExp:
@@ -37,17 +40,12 @@ func getType(c *Context, e interface{}) interface{} {
         expressionType = v
     case *Param:
         expressionType = c.lookup(v.fieldType)
-    case *Variable:
-        // getType(c, v.expType).(*Identifier).readOnly = true
-        // c.lookup(expType)
-        v.expType.(*Integer).readOnly = true
-        expressionType = v.expType
     case *MemberExp:
         //Get record type this expresion is a part of
         // so we can distinguish the field expressions type
         recordType := getType(c, v.record.Exp).(*RecordType)
         expressionType = recordType.getTypeOfRecordMember(c, v.id)
-    case *VarDeclaration:
+    case *Variable:
         if(v.typeId != "") {
             expressionType = c.lookup(v.typeId)
         } else {
@@ -112,6 +110,8 @@ func typeToString(t interface{}) (string) {
         typeStr = "recType"
     } else if _, isRecordType := t.(*RecordType); isRecordType {
         typeStr = "recType"
+    } else if _, isNilType := t.(*Nil); isNilType {
+        typeStr = "nil"
     }  else {
         fmt.Fprintf(os.Stderr, "Type %T not a valid tiger type.\n", t)
         os.Exit(3)
@@ -123,39 +123,39 @@ func typeToString(t interface{}) (string) {
 func isInteger(c *Context, exp interface{}) {
     _, isInt := getType(c, exp).(*Integer)
 
-    performCheck(!isInt, fmt.Sprintf("Type %T Not an integer", getType(c, exp)))
+    performCheck(isInt, fmt.Sprintf("Type %T Not an integer", getType(c, exp)))
 }
 
 func isVoid(c *Context, exp interface{}) {
     _, isVoid := getType(c, exp).(*VoidType)
 
-    performCheck(!isVoid, fmt.Sprintf("Type %T not VoidType", getType(c, exp)))
+    performCheck(isVoid, fmt.Sprintf("Type %T not VoidType", getType(c, exp)))
 }
 
 func isArray(c *Context, exp interface{}) {
     _, isArrayType := getType(c, exp).(*ArrayType)
 
-    performCheck(!isArrayType, fmt.Sprintf("Type %T not Array", getType(c, exp)))
+    performCheck(isArrayType, fmt.Sprintf("Type %T not Array", getType(c, exp)))
 }
 
 func isArrayType(c *Context, exp interface{}) {
     _, isArrayType := exp.(*ArrayType)
 
-    performCheck(!isArrayType, fmt.Sprintf("Type %T not ArrayType", getType(c, exp)))
+    performCheck(isArrayType, fmt.Sprintf("Type %T not ArrayType", getType(c, exp)))
 }
 func isIntegerOrString(c *Context, exp interface{}) {
     typeAsInt := typeToString(getType(c, exp))
     typeAsStr := typeToString(getType(c, exp))
 
 
-    performCheck(!(typeAsInt == "int" || typeAsStr == "string"), fmt.Sprintf("Type %T Not an integer or string", getType(c, exp)))
+    performCheck(typeAsInt == "int" || typeAsStr == "string", fmt.Sprintf("Type %T Not an integer or string", getType(c, exp)))
 }
 
 //checks if the callee is an actual function type
 func isFunction(c *Context, callee string) {
     possibleFunc := c.lookup(callee)
     _, isFuncDec := possibleFunc.(*FuncDeclaration)
-    performCheck(!isFuncDec, fmt.Sprintf("ID: %s is not a function.", callee, possibleFunc))
+    performCheck(isFuncDec, fmt.Sprintf("ID: %s is not a function.", callee, possibleFunc))
 }
 
 func areLegalArguments(c *Context, decParams []Node, calleeParams []Node, callee string) {
@@ -172,20 +172,28 @@ func areLegalArguments(c *Context, decParams []Node, calleeParams []Node, callee
 //Function checks if any fields have been redclared for an id
 func fieldHasNotBeenUsed (id string , declaredFields []string) {
     for _, fieldDecId := range declaredFields {
-        performCheck(id == fieldDecId, fmt.Sprintf("%s already declared!", id))
+        performCheck(id != fieldDecId, fmt.Sprintf("%s already declared!", id))
     }
 }
 
 //NOTE: All failures halt the program.
 func isRecordType(t interface{}) {
     _, ok := t.(*RecordType)
-    performCheck(!ok, fmt.Sprintf("%T is not a record type\n", t))
+    performCheck(ok, fmt.Sprintf("%T is not a record type\n", t))
+}
+
+func isNotNil(t interface{}) {
+    _, isNil := t.(*Nil)
+    performCheck(!isNil, fmt.Sprintf("%T cannot be nil.", t))
 }
 
 func isAssignable(c *Context, exp interface{}, expType interface{}) {
     //These two are used to check if they are assigning nil to a record type declaration
-    _, expIsNilType := exp.(*Nil)
-    _, typeisRecordType := expType.(*RecordType)
+    _, expIsNilType := getType(c, exp).(*Nil)
+    _, typeisRecordType := getType(c, expType).(*RecordType)
+
+    _, expIsNilType2 := getType(c, expType).(*RecordType)
+    _, typeisRecordType2 := getType(c, exp).(*Nil)
 
     //Check any other valid type combinations with these two
     fmt.Printf("Is exp:%T assignable to expType:%T (BEFORE expansion)\n", exp, expType)
@@ -193,9 +201,12 @@ func isAssignable(c *Context, exp interface{}, expType interface{}) {
     expTypeStr := typeToString(getType(c, expType))
     fmt.Printf("Expstr: %s, expTypeStr:%s\n", expStr, expTypeStr)
 
-    fmt.Println("Vaules were ", expIsNilType && typeisRecordType, expTypeStr == expStr)
-    performCheck((!expIsNilType || !typeisRecordType) && !(expTypeStr == expStr) ,
-                 fmt.Sprintf("Expression of type %s not compatible with type %s.", expStr, expTypeStr))
+    fmt.Printf("Is exp:%s assignable to expType:%s (POST expansion)\n", expStr, expTypeStr)
+    recNilCheck := (expIsNilType && typeisRecordType || expIsNilType2 && typeisRecordType2)
+    typesAreEqual := (expTypeStr == expStr)
+    fmt.Printf("RecNil:%t typesareequals:%t\n", recNilCheck, typesAreEqual)
+    performCheck(recNilCheck || typesAreEqual,
+                 fmt.Sprintf("Expression of typ %s not compatible with type %s.", expStr, expTypeStr))
     fmt.Println("Was assingable.")
 }
 
@@ -204,7 +215,7 @@ func expressionsHaveSameType(c *Context, e1 interface{}, e2 interface{}) {
     e2TypeAsStr := typeToString(getType(c, e2))
 
     fmt.Printf("Excpressions have %s %s.\n", e1TypeAsStr, e2TypeAsStr)
-    performCheck(!(e1TypeAsStr == e2TypeAsStr),
+    performCheck(e1TypeAsStr == e2TypeAsStr || (e2TypeAsStr == "nil" && e1TypeAsStr == "recType") || (e2TypeAsStr == "recType" && e1TypeAsStr == "nil"),
                  fmt.Sprintf("Expressions must have same type, %s not compitable with %s.", e1TypeAsStr, e2TypeAsStr))
 }
 

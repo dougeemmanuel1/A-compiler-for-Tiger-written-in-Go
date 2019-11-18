@@ -56,7 +56,7 @@ func (c *Context) add(identifier string, declaration interface{}) {
     }
     _, hasKey := c.locals[id]
 
-    _, isVarDec := declaration.(*VarDeclaration)
+    _, isVarDec := declaration.(*Variable)
 
     if(hasKey && isVarDec) {
         //empty case
@@ -99,7 +99,7 @@ func (c *Context) lookup(id string) interface{} {
 func resolveDeclarationId(declaration interface{}) string {
     var id string
     typeDec, isTypeDec := declaration.(*TypeDeclaration)
-    varDec, isVarDec := declaration.(*VarDeclaration)
+    varDec, isVarDec := declaration.(*Variable)
     funcDec, isFuncDec := declaration.(*FuncDeclaration)
 
     if(isTypeDec) {

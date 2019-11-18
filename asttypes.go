@@ -43,6 +43,9 @@ func NewIntegerPrimitive() *Integer {
 }
 
 
+func (i *Integer) getId() string { return "" }
+
+
 func (i *Integer) isReadOnly() bool { return i.readOnly }
 
 func (i *Integer) visit() string {
@@ -66,6 +69,9 @@ func NewInfixExpression(opType Op, leftNode Node , rightNode Node) *InfixExpress
         rightNode: rightNode,
     }
 }
+
+func (ie *InfixExpression) getId() string { return "" }
+
 
 func (ie *InfixExpression) isReadOnly() bool { return false }
 
@@ -138,6 +144,9 @@ func NewNegation(exp *Node) *Negation {
     }
 }
 
+func (ne *Negation) getId() string { return "" }
+
+
 func (ne *Negation) isReadOnly() bool { return false }
 
 func (ne *Negation) visit() string {
@@ -169,6 +178,9 @@ func NewSeqExpression(expressions []Node) *SeqExpression {
         nodes: expressions,
     }
 }
+
+func (se *SeqExpression) getId() string { return "" }
+
 
 func (se *SeqExpression) isReadOnly() bool { return false }
 
@@ -204,6 +216,9 @@ func NewStringLiteral(s string) *StringLiteral {
     }
 }
 
+func (sl *StringLiteral) getId() string { return "" }
+
+
 func (sl *StringLiteral) isReadOnly() bool { return false }
 
 func (sl *StringLiteral) visit() string {
@@ -229,6 +244,9 @@ func NewAssignment(lValue Node, exp Node) *Assignment {
     }
 }
 
+func (as *Assignment) getId() string { return "" }
+
+
 func (as *Assignment) isReadOnly() bool { return false }
 
 func (as *Assignment) visit() string {
@@ -239,13 +257,18 @@ func (as *Assignment) analyze(c *Context)  {
     as.lValue.Exp.analyze(c)
     as.exp.Exp.analyze(c)
     fmt.Printf("Is exp:%T assignables to expType:%T (BEFORE expansion)\n", as.lValue.Exp, as.exp.Exp)
-    isAssignable(c, as.lValue.Exp, as.exp.Exp)
+    isAssignable(c, as.exp.Exp, as.lValue.Exp)
 
-    //Checking for assignment to read only variables here.
+    //Checking for assignment to read only Variables here.
     if identifier, isIdentifier := as.lValue.Exp.(*Identifier); isIdentifier {
         if _, isVariable := c.lookup(identifier.id).(*Variable); isVariable {
-            performCheck(true, fmt.Sprintf("Assignment to read only variable"))
+            performCheck(true, fmt.Sprintf("Assignment to read only Variable"))
         }
+    }
+
+    //Check for assignment of nil to non record types
+    if _, isRecType := c.lookup(as.lValue.Exp.getId()).(*RecordType); isRecType {
+        fmt.Println("WAS A REOCRD TYPE POGGERS")
     }
 }
 
@@ -258,6 +281,9 @@ type Nil struct {
 func NewNil() *Nil {
     return &Nil{}
 }
+
+func (ni *Nil) getId() string { return "" }
+
 
 func (ni *Nil) isReadOnly() bool { return false }
 
@@ -281,6 +307,9 @@ func NewCallExpression(callee string, paramNodes []Node) *CallExpression {
         paramNodes: paramNodes,
     }
 }
+
+func (ce *CallExpression) getId() string { return "" }
+
 
 func (ce *CallExpression) isReadOnly() bool { return false }
 
@@ -326,6 +355,9 @@ func NewTypeDeclaration(identifier string, n *Node) *TypeDeclaration {
     }
 }
 
+func (td *TypeDeclaration) getId() string { return "" }
+
+
 func (td *TypeDeclaration) isReadOnly() bool { return false }
 
 func (td *TypeDeclaration) visit() string {
@@ -359,6 +391,9 @@ func NewFuncDeclaration(id string, params []Node, returnType string, body Node )
         body: body,
     }
 }
+
+func (fd *FuncDeclaration) getId() string { return "" }
+
 
 func (fd *FuncDeclaration) isReadOnly() bool { return false }
 
@@ -402,6 +437,9 @@ func NewParam(identifier1 string, fieldType string) *Param {
     }
 }
 
+func (p *Param) getId() string { return "" }
+
+
 func (p *Param) isReadOnly() bool { return false }
 
 func (p *Param) visit() string {
@@ -425,6 +463,9 @@ func NewMemberExp(record Node, id string) *MemberExp {
         id: id,
     }
 }
+
+func (me *MemberExp) getId() string { return me.id }
+
 
 func (me *MemberExp) isReadOnly() bool { return false }
 
@@ -460,6 +501,9 @@ func NewBinding(identifier string, exp Node) *Binding {
     }
 }
 
+func (fc *Binding) getId() string { return "" }
+
+
 func (fc *Binding) isReadOnly() bool { return false }
 
 func (fc *Binding) visit() string {
@@ -470,68 +514,66 @@ func (fc *Binding) analyze(c *Context)  {
 }
 
 type Variable struct {
-    id          string
-    expType     interface{}
-    readOnly    bool
-}
-
-func (v *Variable) isReadOnly() bool {
-    fmt.Printf("Returning %v \n", v.readOnly)
-    return v.readOnly
-}
-
-type VarDeclaration struct {
     expType    interface{}
     id         string
     typeId     string
     Exp        Node
+    readOnly   bool
 }
 
-func NewVarDeclaration(identifier1 string, typeId string, n *Node) *VarDeclaration {
-    return &VarDeclaration{
+func NewVariable(identifier1 string, typeId string, n *Node) *Variable {
+    return &Variable{
         id: identifier1,
         typeId: typeId,
         Exp: *n,
     }
 }
 
-func (vd *VarDeclaration) isReadOnly() bool { return false }
+func (v *Variable) getId() string { return "" }
 
-func (vd *VarDeclaration) visit() string {
-    return fmt.Sprintf("(varDec: id:%s typeId:%s exp:%s)", vd.id, vd.typeId, vd.Exp.visit())
+
+func (v *Variable) isReadOnly() bool { return false }
+
+func (v *Variable) visit() string {
+    return fmt.Sprintf("(varDec: id:%s typeId:%s exp:%s)", v.id, v.typeId, v.Exp.visit())
 }
 
-func (vd *VarDeclaration) analyze(c *Context)  {
-    vd.Exp.analyze(c)
-    if(vd.typeId != "") {//If type id is declared then we know the type from a lookup!
-        vd.expType = c.lookup(vd.typeId)
+func (v *Variable) analyze(c *Context)  {
+    v.Exp.analyze(c)
+    if(v.typeId != "") {//If type id is declared then we know the type from a lookup!
+        v.expType = c.lookup(v.typeId)
 
-        fmt.Printf("Type in lookup was %T\n", vd.expType)
+        fmt.Printf("Type in lookup was %T\n", v.expType)
 
         //Check assignable to ?
-        isAssignable(c, vd.Exp.Exp, vd.expType)
+        isAssignable(c, v.Exp.Exp, v.expType)
 
         //When type is declared for record, it must match type declared in reccreate
-        if rc, isRecordExp := vd.Exp.Exp.(*RecordExp); isRecordExp {
-            if(rc.id != vd.typeId) {
-                fmt.Fprintf(os.Stderr, fmt.Sprintf("Record type %s not compatible with %s.\n", rc.id, vd.typeId))
+        if rc, isRecordExp := v.Exp.Exp.(*RecordExp); isRecordExp {
+            if(rc.id != v.typeId) {
+                fmt.Fprintf(os.Stderr, fmt.Sprintf("Record type %s not compatible with %s.\n", rc.id, v.typeId))
                 os.Exit(3)
             }
         }
 
         //When type is declared for array, it must match type declared in ArrayExp
-        // if ac, isArrayExp := vd.Exp.Exp.(*ArrayExp); isArrayExp {
-        //     if(ac.typeId != vd.typeId) {
-        //         fmt.Fprintf(os.Stderr, fmt.Sprintf("Array type %s not compatible with %s.\n", ac.typeId, vd.typeId))
+        // if ac, isArrayExp := v.Exp.Exp.(*ArrayExp); isArrayExp {
+        //     if(ac.typeId != v.typeId) {
+        //         fmt.Fprintf(os.Stderr, fmt.Sprintf("Array type %s not compatible with %s.\n", ac.typeId, v.typeId))
         //         os.Exit(3)
         //     }
         // }
     } else { // Inference type from init experssion:O
-        vd.expType = vd.Exp.Exp
+        v.expType = v.Exp.Exp
+
+
+        //Make sure they arent assigning nil
+        //unless a type that is a record is present
+        isNotNil(v.expType)
     }
 
     //add type to context
-    c.add(vd.id, vd)
+    c.add(v.id, v)
 }
 
 
@@ -546,6 +588,9 @@ func NewIdentifier(identifier string) *Identifier {
         id: identifier,
     }
 }
+
+func (id *Identifier) getId() string { return id.id }
+
 
 func (id *Identifier) isReadOnly() bool { return id.readOnly }
 
@@ -572,6 +617,17 @@ func NewSubscriptExpression(id string, expId *Node, subscriptExp Node) *Subscrip
         subscriptExp: subscriptExp,
     }
 }
+
+func (se *Subscript) getId() string {
+    subId := ""
+    if(se.id != "nil") {
+        subId = se.id
+    } else {
+        subId = se.expId.Exp.getId()
+    }
+    return subId
+}
+
 
 func (se *Subscript) isReadOnly() bool { return false }
 
@@ -658,6 +714,9 @@ func (rt *RecordType) getTypeOfRecordMember(c *Context, id string) interface{} {
     return t
 }
 
+func (rt *RecordType) getId() string { return "" }
+
+
 func (rt *RecordType) isReadOnly() bool { return false }
 
 func (rt *RecordType) visit() string {
@@ -699,6 +758,9 @@ func NewRecordExp(id string, fieldCreateNodes []Node) *RecordExp {
     }
 }
 
+func (rc *RecordExp) getId() string { return "" }
+
+
 func (rc *RecordExp) isReadOnly() bool { return false }
 
 func (rc *RecordExp) visit() string {
@@ -720,8 +782,8 @@ func (rc *RecordExp) analyze(c *Context)  {
 
 
 type ArrayType struct {
-    expType    interface{}
-    id    string
+    memberType  interface{}
+    id          string
 }
 
 func NewArrayType(identifier string) *ArrayType {
@@ -729,6 +791,9 @@ func NewArrayType(identifier string) *ArrayType {
         id: identifier,
     }
 }
+
+func (at *ArrayType) getId() string { return "" }
+
 
 func (at *ArrayType) isReadOnly() bool { return false }
 
@@ -738,16 +803,16 @@ func (at *ArrayType) visit() string {
 
 
 func (at *ArrayType) analyze(c *Context)  {
-     at.expType = c.lookup(at.id)
-     fmt.Printf("Assigning type %T to arraytype\n", at.expType)
+     at.memberType = c.lookup(at.id)
+     fmt.Printf("Assigning type %T to arraytype\n", at.memberType)
 }
 
 
 type ArrayExp struct {
-    expType  interface{}
-    typeId    string
-    subscriptNode  Node
-    expNode  Node
+    expType         interface{}
+    typeId          string
+    subscriptNode   Node
+    expNode         Node
 }
 
 func NewArrayExp(typeIdentifier string, subscriptNode Node, expNode Node) *ArrayExp {
@@ -757,6 +822,9 @@ func NewArrayExp(typeIdentifier string, subscriptNode Node, expNode Node) *Array
         expNode: expNode,
     }
 }
+
+func (ae *ArrayExp) getId() string { return "" }
+
 
 func (ae *ArrayExp) isReadOnly() bool { return false }
 
@@ -785,6 +853,9 @@ func NewLetExpression(declarations []Node, expressions []Node) *LetExpression {
         exps: expressions,
     }
 }
+
+func (le *LetExpression) getId() string { return "" }
+
 
 func (le *LetExpression) isReadOnly() bool { return false }
 
@@ -854,6 +925,9 @@ func NewIfThenElseExpression(condNode Node, thenNode Node, elseNode *Node) *IfTh
     }
 }
 
+func (itee *IfThenElseExpression) getId() string { return "" }
+
+
 func (itee *IfThenElseExpression) isReadOnly() bool { return false }
 
 func (itee *IfThenElseExpression) visit() string {
@@ -900,6 +974,9 @@ func NewWhileExpression(cond Node, body Node) *WhileExpression {
     }
 }
 
+func (we *WhileExpression) getId() string { return "" }
+
+
 func (we *WhileExpression) isReadOnly() bool { return false }
 
 func (we *WhileExpression) visit() string {
@@ -931,6 +1008,9 @@ func NewForExpression(id string, low Node, high Node, body Node) *ForExpression 
         body:body,
     }
 }
+
+func (fe *ForExpression) getId() string { return "" }
+
 
 func (fe *ForExpression) isReadOnly() bool { return false }
 
