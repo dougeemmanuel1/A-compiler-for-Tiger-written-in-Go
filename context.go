@@ -10,6 +10,7 @@ type Context struct {
     currentFunction     interface{}
     inLoop              bool
     locals              map[string]interface{}
+    lastDecId           string
 }
 
 func NewContext(parent *Context, currentFunction interface{}, inLoop bool) *Context {
@@ -40,7 +41,7 @@ func (c *Context) predeclarePrimitives() {
      //Pre declare primitives
      c.locals["int"] = NewIntegerPrimitive()
      c.locals["string"] = &StringPrimitive{}
-     c.locals["nil"] = NewNil()
+     c.locals["nil"] = NewNil(0)
 
      fmt.Printf("map conmtets %v\n", c.locals)
  }
@@ -56,10 +57,20 @@ func (c *Context) add(identifier string, declaration interface{}) {
     }
     _, hasKey := c.locals[id]
 
-    _, isVarDec := declaration.(*Variable)
+    //
+    _, isVar := declaration.(*Variable)
 
-    if(hasKey && isVarDec) {
-        //empty case
+    fmt.Printf("Type in add was %T\n", declaration)
+    if(isVar){
+        //Empty case so we can skip variable declarations in terms of
+        //checking over shadowing or redeclares. They can always be
+        //over shadowed
+    } else if(c.lastDecId != id) {
+        fmt.Println("Allowing overshadow.")
+    } else if(hasKey && c.lastDecId == id) {
+        fmt.Printf("lastDecId: %s id:%s\n", c.lastDecId, id)
+        fmt.Fprintf(os.Stderr, "%s cannot overshadow %s without intervening variable declaration.\n", c.lastDecId, id)
+        os.Exit(3)
     } else if(hasKey) {
         fmt.Printf("%s already declared in this scope.\n", id)
         os.Exit(3)
@@ -76,6 +87,10 @@ func (c *Context) add(identifier string, declaration interface{}) {
 
     fmt.Printf("Adding Dec: %s type: %T\n", id, declaration)
     c.locals[id] = declaration
+
+    //Allows an intervening variable declaration will allow two "a" types
+    //to not be in the same batch of mutually recursive types
+    c.lastDecId = id
 }
 
 func (c *Context) lookup(id string) interface{} {

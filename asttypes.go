@@ -24,23 +24,39 @@ const (
     Op_NEG Op = 12
 )
 
-type StringPrimitive struct {}
-type VoidType struct {}
+type StringPrimitive struct {
+    lineno     int
+}
+
+func (sp *StringPrimitive) getLineno() int { return sp.lineno }
+
+type VoidType struct {
+    lineno     int
+}
+
+func (vt *VoidType) getLineno() int { return vt.lineno }
+
+
 type Integer struct {
+    lineno     int
     expType    interface{}
     readOnly   bool
     Number     int
 }
 
-func NewInteger(number int) *Integer {
+func NewInteger(number int, lineno int) *Integer {
     return &Integer{
         Number: number,
+        lineno: lineno,
     }
 }
 
 func NewIntegerPrimitive() *Integer {
     return &Integer{}
 }
+
+
+func (i *Integer) getLineno() int { return i.lineno }
 
 
 func (i *Integer) getId() string { return "" }
@@ -60,15 +76,20 @@ type InfixExpression struct {
     opType Op
     leftNode Node
     rightNode  Node
+    lineno     int
 }
 
-func NewInfixExpression(opType Op, leftNode Node , rightNode Node) *InfixExpression {
+func NewInfixExpression(opType Op, leftNode Node , rightNode Node, lineno int) *InfixExpression {
     return &InfixExpression{
         opType: opType,
         leftNode: leftNode,
         rightNode: rightNode,
+        lineno: lineno,
     }
 }
+
+func (ie *InfixExpression) getLineno() int { return ie.lineno }
+
 
 func (ie *InfixExpression) getId() string { return "" }
 
@@ -136,13 +157,18 @@ func resolveOp(opType Op) string {
 type Negation struct {
     expType    interface{}
     n *Node
+    lineno     int
 }
 
-func NewNegation(exp *Node) *Negation {
+func NewNegation(exp *Node, lineno int) *Negation {
     return &Negation{
         n: exp,
+        lineno: lineno,
     }
 }
+
+func (ne *Negation) getLineno() int { return ne.lineno }
+
 
 func (ne *Negation) getId() string { return "" }
 
@@ -165,19 +191,24 @@ func (ne *Negation) analyze(c *Context)  {
 
 
 type SeqExpression struct {
+    lineno     int
     expType    interface{}
     nodes []Node
 }
 
-func NewSeqExpression(expressions []Node) *SeqExpression {
+func NewSeqExpression(expressions []Node, lineno int) *SeqExpression {
     // var copiedExpressionContents []Node
     // for _, e := range expressions {
         // copiedExpressionContents = append(copiedExpressionContents, *e)
     // }
     return &SeqExpression{
         nodes: expressions,
+        lineno: lineno,
     }
 }
+
+func (se *SeqExpression) getLineno() int { return se.lineno }
+
 
 func (se *SeqExpression) getId() string { return "" }
 
@@ -208,13 +239,18 @@ func (se *SeqExpression) analyze(c *Context)  {
 type StringLiteral struct {
     expType    interface{}
     str string
+    lineno     int
 }
 
-func NewStringLiteral(s string) *StringLiteral {
+func NewStringLiteral(s string, lineno int) *StringLiteral {
     return &StringLiteral{
         str: s,
+        lineno: lineno,
     }
 }
+
+func (sl *StringLiteral) getLineno() int { return sl.lineno }
+
 
 func (sl *StringLiteral) getId() string { return "" }
 
@@ -235,14 +271,19 @@ type Assignment struct {
     expType    interface{}
     lValue  Node
     exp     Node
+    lineno     int
 }
 
-func NewAssignment(lValue Node, exp Node) *Assignment {
+func NewAssignment(lValue Node, exp Node, lineno int) *Assignment {
     return &Assignment{
         lValue: lValue,
         exp:    exp,
+        lineno: lineno,
     }
 }
+
+func (as *Assignment) getLineno() int { return as.lineno }
+
 
 func (as *Assignment) getId() string { return "" }
 
@@ -275,12 +316,18 @@ func (as *Assignment) analyze(c *Context)  {
 
 
 type Nil struct {
+    lineno     int
     expType interface{}
 }
 
-func NewNil() *Nil {
-    return &Nil{}
+func NewNil(lineno int) *Nil {
+    return &Nil{
+        lineno: lineno,
+    }
 }
+
+func (ni *Nil) getLineno() int { return ni.lineno }
+
 
 func (ni *Nil) getId() string { return "" }
 
@@ -299,14 +346,19 @@ type CallExpression struct {
     expType    interface{}
     callee    string
     paramNodes    []Node
+    lineno     int
 }
 
-func NewCallExpression(callee string, paramNodes []Node) *CallExpression {
+func NewCallExpression(callee string, paramNodes []Node,lineno int) *CallExpression {
     return &CallExpression{
         callee: callee,
         paramNodes: paramNodes,
+        lineno: lineno,
     }
 }
+
+func (ce *CallExpression) getLineno() int { return ce.lineno }
+
 
 func (ce *CallExpression) getId() string { return "" }
 
@@ -343,17 +395,22 @@ func (ce *CallExpression) analyze(c *Context)  {
 
 
 type TypeDeclaration struct {
+    lineno     int
     expType    interface{}
     id    string
     n    Node
 }
 
-func NewTypeDeclaration(identifier string, n *Node) *TypeDeclaration {
+func NewTypeDeclaration(identifier string, n *Node, lineno int) *TypeDeclaration {
     return &TypeDeclaration{
         id: identifier,
         n: *n,
+        lineno: lineno,
     }
 }
+
+func (td *TypeDeclaration) getLineno() int { return td.lineno }
+
 
 func (td *TypeDeclaration) getId() string { return "" }
 
@@ -377,20 +434,24 @@ type FuncDeclaration struct {
     expType            interface{}
     id                 string
     returnType         string
-    body                Node
-    paramNodes   []Node
+    body               Node
+    paramNodes         []Node
     bodyContext        *Context
-
+    lineno             int
 }
 
-func NewFuncDeclaration(id string, params []Node, returnType string, body Node ) *FuncDeclaration {
+func NewFuncDeclaration(id string, params []Node, returnType string, body Node, lineno int) *FuncDeclaration {
     return &FuncDeclaration{
         id: id,
         paramNodes: params,
         returnType: returnType,
         body: body,
+        lineno: lineno,
     }
 }
+
+func (fd *FuncDeclaration) getLineno() int { return fd.lineno }
+
 
 func (fd *FuncDeclaration) getId() string { return "" }
 
@@ -425,17 +486,22 @@ func (fd *FuncDeclaration) analyzeSignature(c *Context) {
 }
 
 type Param struct {
+    lineno     int
     expType    interface{}
     id         string
     fieldType  string
 }
 
-func NewParam(identifier1 string, fieldType string) *Param {
+func NewParam(identifier1 string, fieldType string, lineno int) *Param {
     return &Param{
         id: identifier1,
         fieldType: fieldType,
+        lineno: lineno,
     }
 }
+
+func (p *Param) getLineno() int { return p.lineno }
+
 
 func (p *Param) getId() string { return "" }
 
@@ -452,17 +518,22 @@ func (p *Param) analyze(c *Context)  {
 
 
 type MemberExp struct {
+    lineno     int
     expType    interface{}
     id        string
     record    Node
 }
 
-func NewMemberExp(record Node, id string) *MemberExp {
+func NewMemberExp(record Node, id string, lineno int) *MemberExp {
     return &MemberExp{
         record: record,
         id: id,
+        lineno: lineno,
     }
 }
+
+func (me *MemberExp) getLineno() int { return me.lineno }
+
 
 func (me *MemberExp) getId() string { return me.id }
 
@@ -492,14 +563,19 @@ type Binding struct {
     expType    interface{}
     id    string
     exp   Node
+    lineno     int
 }
 
-func NewBinding(identifier string, exp Node) *Binding {
+func NewBinding(identifier string, exp Node, lineno int) *Binding {
     return &Binding{
         id: identifier,
         exp: exp,
+        lineno: lineno,
     }
 }
+
+func (fc *Binding) getLineno() int { return fc.lineno }
+
 
 func (fc *Binding) getId() string { return "" }
 
@@ -514,6 +590,7 @@ func (fc *Binding) analyze(c *Context)  {
 }
 
 type Variable struct {
+    lineno     int
     expType    interface{}
     id         string
     typeId     string
@@ -521,15 +598,19 @@ type Variable struct {
     readOnly   bool
 }
 
-func NewVariable(identifier1 string, typeId string, n *Node) *Variable {
+func NewVariable(identifier1 string, typeId string, n *Node, lineno int) *Variable {
     return &Variable{
         id: identifier1,
         typeId: typeId,
         Exp: *n,
+        lineno: lineno,
     }
 }
 
-func (v *Variable) getId() string { return "" }
+func (v *Variable) getLineno() int { return v.lineno }
+
+
+func (v *Variable) getId() string { return v.id }
 
 
 func (v *Variable) isReadOnly() bool { return false }
@@ -557,12 +638,12 @@ func (v *Variable) analyze(c *Context)  {
         }
 
         //When type is declared for array, it must match type declared in ArrayExp
-        // if ac, isArrayExp := v.Exp.Exp.(*ArrayExp); isArrayExp {
-        //     if(ac.typeId != v.typeId) {
-        //         fmt.Fprintf(os.Stderr, fmt.Sprintf("Array type %s not compatible with %s.\n", ac.typeId, v.typeId))
-        //         os.Exit(3)
-        //     }
-        // }
+        if ac, isArrayExp := v.Exp.Exp.(*ArrayExp); isArrayExp {
+            if(ac.typeId != v.typeId) {
+                fmt.Fprintf(os.Stderr, fmt.Sprintf("Array type %s not compatible with %s.\n", ac.typeId, v.typeId))
+                os.Exit(3)
+            }
+        }
     } else { // Inference type from init experssion:O
         v.expType = v.Exp.Exp
 
@@ -578,16 +659,21 @@ func (v *Variable) analyze(c *Context)  {
 
 
 type Identifier struct {
+    lineno     int
     expType    interface{}
     id         string
     readOnly   bool
 }
 
-func NewIdentifier(identifier string) *Identifier {
+func NewIdentifier(identifier string, lineno int) *Identifier {
     return &Identifier{
         id: identifier,
+        lineno: lineno,
     }
 }
+
+func (id *Identifier) getLineno() int { return id.lineno }
+
 
 func (id *Identifier) getId() string { return id.id }
 
@@ -604,6 +690,7 @@ func (id *Identifier) analyze(c *Context)  {
 
 
 type Subscript struct {
+    lineno     int
     expType    interface{}
     id          string
     expId        *Node
@@ -618,6 +705,7 @@ func NewSubscriptExpression(id string, expId *Node, subscriptExp Node) *Subscrip
     }
 }
 
+func(se *Subscript) getLineno() int { return se.lineno }
 func (se *Subscript) getId() string {
     subId := ""
     if(se.id != "nil") {
@@ -665,14 +753,16 @@ func (se *Subscript) analyze(c *Context)  {
 
 
 type RecordType struct {
+    lineno     int
     expType          interface{}
     typeId           string
     fieldDecNodes    []Node
 }
 
-func NewRecordType(fieldDecNodes []Node) *RecordType {
+func NewRecordType(fieldDecNodes []Node, lineno int) *RecordType {
     return &RecordType{
         fieldDecNodes: fieldDecNodes,
+        lineno: lineno,
     }
 }
 
@@ -714,6 +804,9 @@ func (rt *RecordType) getTypeOfRecordMember(c *Context, id string) interface{} {
     return t
 }
 
+func (rt *RecordType) getLineno() int { return rt.lineno }
+
+
 func (rt *RecordType) getId() string { return "" }
 
 
@@ -749,14 +842,19 @@ type RecordExp struct {
     expType    interface{}
     id string
     fieldCreateNodes    []Node
+    lineno     int
 }
 
-func NewRecordExp(id string, fieldCreateNodes []Node) *RecordExp {
+func NewRecordExp(id string, fieldCreateNodes []Node, lineno int) *RecordExp {
     return &RecordExp{
         id: id,
         fieldCreateNodes: fieldCreateNodes,
+        lineno: lineno,
     }
 }
+
+func (rc *RecordExp) getLineno() int { return rc.lineno }
+
 
 func (rc *RecordExp) getId() string { return "" }
 
@@ -782,15 +880,20 @@ func (rc *RecordExp) analyze(c *Context)  {
 
 
 type ArrayType struct {
+    lineno     int
     memberType  interface{}
     id          string
 }
 
-func NewArrayType(identifier string) *ArrayType {
+func NewArrayType(identifier string, lineno int) *ArrayType {
     return &ArrayType{
         id: identifier,
+        lineno: lineno,
     }
 }
+
+func (at *ArrayType) getLineno() int { return at.lineno }
+
 
 func (at *ArrayType) getId() string { return "" }
 
@@ -809,6 +912,7 @@ func (at *ArrayType) analyze(c *Context)  {
 
 
 type ArrayExp struct {
+    lineno     int
     expType         interface{}
     typeId          string
     subscriptNode   Node
@@ -822,6 +926,9 @@ func NewArrayExp(typeIdentifier string, subscriptNode Node, expNode Node) *Array
         expNode: expNode,
     }
 }
+
+func (ae *ArrayExp) getLineno() int { return ae.lineno }
+
 
 func (ae *ArrayExp) getId() string { return "" }
 
@@ -838,21 +945,27 @@ func (ae *ArrayExp) analyze(c *Context)  {
     isArrayType(c, arr)
     ae.subscriptNode.Exp.analyze(c)
     isInteger(c, ae.subscriptNode.Exp)
-
+    ae.expNode.Exp.analyze(c)
+    isAssignable(c, ae.expNode.Exp, c.lookup(ae.typeId))
 }
 
 type LetExpression struct {
     expType    interface{}
     declarationNodes    []Node
     exps    []Node
+    lineno     int
 }
 
-func NewLetExpression(declarations []Node, expressions []Node) *LetExpression {
+func NewLetExpression(declarations []Node, expressions []Node, lineno int) *LetExpression {
     return &LetExpression{
         declarationNodes: declarations,
         exps: expressions,
+        lineno: lineno,
     }
 }
+
+func (le *LetExpression) getLineno() int { return le.lineno }
+
 
 func (le *LetExpression) getId() string { return "" }
 
@@ -876,9 +989,18 @@ func (le *LetExpression) visit() string {
 func (le *LetExpression) analyze(c *Context)  {
     newContext := c.createChildContextForBlock()
     for _, d := range le.declarationNodes {
+        //The rest of the .lastDecId assignments are to allow overshadowing
+        //if there is an intervening declaration between the repeat offenders
+        //(typedecs in this case)
         td, isTypeDec := d.Exp.(*TypeDeclaration)
+        v, isVarDec := d.Exp.(*Variable)
+        f, funcDec := d.Exp.(*FuncDeclaration)
         if(isTypeDec) { //If its a type declaration, add it to the new context
             newContext.add(td.id, td.n.Exp)
+        } else if(isVarDec) {
+            newContext.lastDecId = v.id
+        } else if(funcDec) {
+            newContext.lastDecId = f.id
         }
     }
 
@@ -891,9 +1013,18 @@ func (le *LetExpression) analyze(c *Context)  {
     }
 
     for _, d := range le.declarationNodes {
+        //The rest of the .lastDecId assignments are to allow overshadowing
+        //if there is an intervening declaration between the repeat offenders
+        //(functions in this case)
         fd, isFuncDec := d.Exp.(*FuncDeclaration)
+        v, isVarDec := d.Exp.(*Variable)
+        td, isTypeDec := d.Exp.(*TypeDeclaration)
         if(isFuncDec) { //If its a fimc declaration, add it to the new context
             newContext.add(fd.id, fd)
+        } else if(isVarDec) {
+            newContext.lastDecId = v.id
+        } else if(isTypeDec) {
+            newContext.lastDecId = td.id
         }
     }
 
@@ -915,15 +1046,20 @@ type IfThenElseExpression struct {
     condNode  Node
     thenNode  Node
     elseNode  *Node
+    lineno     int
 }
 
-func NewIfThenElseExpression(condNode Node, thenNode Node, elseNode *Node) *IfThenElseExpression {
+func NewIfThenElseExpression(condNode Node, thenNode Node, elseNode *Node, lineno int) *IfThenElseExpression {
     return &IfThenElseExpression{
         condNode: condNode,
         thenNode: thenNode,
         elseNode: elseNode,
+        lineno: lineno,
     }
 }
+
+func (itee *IfThenElseExpression) getLineno() int { return itee.lineno }
+
 
 func (itee *IfThenElseExpression) getId() string { return "" }
 
@@ -965,14 +1101,19 @@ type WhileExpression struct {
     expType    interface{}
     cond       Node
     body       Node
+    lineno     int
 }
 
-func NewWhileExpression(cond Node, body Node) *WhileExpression {
+func NewWhileExpression(cond Node, body Node, lineno int) *WhileExpression {
     return &WhileExpression{
         cond:cond,
         body:body,
+        lineno: lineno,
     }
 }
+
+func (we *WhileExpression) getLineno() int { return we.lineno }
+
 
 func (we *WhileExpression) getId() string { return "" }
 
@@ -998,16 +1139,21 @@ type ForExpression struct {
     low   Node
     high  Node
     body  Node
+    lineno     int
 }
 
-func NewForExpression(id string, low Node, high Node, body Node) *ForExpression {
+func NewForExpression(id string, low Node, high Node, body Node, lineno int) *ForExpression {
     return &ForExpression{
         id:id,
         low:low,
         high:high,
         body:body,
+        lineno: lineno,
     }
 }
+
+func (fe *ForExpression) getLineno() int { return fe.lineno }
+
 
 func (fe *ForExpression) getId() string { return "" }
 

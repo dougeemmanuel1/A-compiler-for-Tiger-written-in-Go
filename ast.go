@@ -21,6 +21,7 @@ type Visitor interface {
 	analyze(c *Context)
 	isReadOnly() bool
 	getId() string
+	getLineno() int
 }
 
 func (n *Node) visit() string {

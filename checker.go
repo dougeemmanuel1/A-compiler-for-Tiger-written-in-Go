@@ -85,7 +85,7 @@ func getType(c *Context, e interface{}) interface{} {
             }
         }
     default:
-        fmt.Fprintf(os.Stderr, "Type %T was unresolvable.\n", e)
+        fmt.Fprintf(os.Stderr, "ERROR: <%d> : Semantic: Type %T was unresolvable.\n", resolveLineNumber(e), e)
         os.Exit(3)
     }
 
@@ -113,7 +113,7 @@ func typeToString(t interface{}) (string) {
     } else if _, isNilType := t.(*Nil); isNilType {
         typeStr = "nil"
     }  else {
-        fmt.Fprintf(os.Stderr, "Type %T not a valid tiger type.\n", t)
+        fmt.Fprintf(os.Stderr, "ERROR: <%d> : Semantic: Type %T not a valid tiger type.\n", resolveLineNumber(t), t)
         os.Exit(3)
     }
 
@@ -123,32 +123,58 @@ func typeToString(t interface{}) (string) {
 func isInteger(c *Context, exp interface{}) {
     _, isInt := getType(c, exp).(*Integer)
 
-    performCheck(isInt, fmt.Sprintf("Type %T Not an integer", getType(c, exp)))
+    performCheck(isInt, fmt.Sprintf("ERROR: <%d> : Semantic: Type %T Not an integer", resolveLineNumber(exp), getType(c, exp)))
 }
 
 func isVoid(c *Context, exp interface{}) {
     _, isVoid := getType(c, exp).(*VoidType)
 
-    performCheck(isVoid, fmt.Sprintf("Type %T not VoidType", getType(c, exp)))
+    performCheck(isVoid, fmt.Sprintf("ERROR: <%d> : Semantic: Type %T not VoidType", resolveLineNumber(exp), getType(c, exp)))
 }
 
+func resolveLineNumber(exp interface{}) int {
+    var lineno int
+    switch t := exp.(type) {
+        case *ArrayType: lineno = t.getLineno()
+        case *ArrayExp: lineno = t.getLineno()
+        case *Identifier: lineno = t.getLineno()
+        case *Integer: lineno = t.getLineno()
+        case *StringLiteral: lineno = t.getLineno()
+        case *StringPrimitive: lineno = t.getLineno()
+        case *Nil: lineno = t.getLineno()
+        case *VoidType: lineno = t.getLineno()
+        case *RecordExp: lineno = t.getLineno()
+        case *RecordType: lineno = t.getLineno()
+        case *Param: lineno = t.getLineno()
+        case *MemberExp: lineno = t.getLineno()
+        case *Variable: lineno = t.getLineno()
+        case *FuncDeclaration: lineno = t.getLineno()
+        case *LetExpression: lineno = t.getLineno()
+        case *SeqExpression: lineno = t.getLineno()
+        case *CallExpression: lineno = t.getLineno()
+        case *InfixExpression: lineno = t.getLineno()
+        case *IfThenElseExpression: lineno = t.getLineno()
+
+    }
+    return lineno
+}
 func isArray(c *Context, exp interface{}) {
     _, isArrayType := getType(c, exp).(*ArrayType)
-
-    performCheck(isArrayType, fmt.Sprintf("Type %T not Array", getType(c, exp)))
+    performCheck(isArrayType, fmt.Sprintf("ERROR: <%d> : Semantic: Type %T not Array", resolveLineNumber(exp), getType(c, exp)))
 }
 
 func isArrayType(c *Context, exp interface{}) {
     _, isArrayType := exp.(*ArrayType)
-
-    performCheck(isArrayType, fmt.Sprintf("Type %T not ArrayType", getType(c, exp)))
+    fmt.Printf("Type was %T \n", exp)
+    performCheck(isArrayType, fmt.Sprintf("ERROR: <%d> : Semantic: Type %T not ArrayType", resolveLineNumber(exp), getType(c, exp)))
 }
+
 func isIntegerOrString(c *Context, exp interface{}) {
     typeAsInt := typeToString(getType(c, exp))
     typeAsStr := typeToString(getType(c, exp))
 
 
-    performCheck(typeAsInt == "int" || typeAsStr == "string", fmt.Sprintf("Type %T Not an integer or string", getType(c, exp)))
+    performCheck(typeAsInt == "int" || typeAsStr == "string", fmt.Sprintf("ERROR: <%d> : Semantic: Type %T Not an integer or string", resolveLineNumber(exp), getType(c, exp)))
 }
 
 //checks if the callee is an actual function type
@@ -159,8 +185,9 @@ func isFunction(c *Context, callee string) {
 }
 
 func areLegalArguments(c *Context, decParams []Node, calleeParams []Node, callee string) {
+    calleeExp := c.lookup(callee)
     //Check correct number of args to call
-    performCheck(len(decParams) != len(calleeParams), fmt.Sprintf("Expected %d args in call to %s, got %d.", len(decParams), callee, len(calleeParams)))
+    performCheck(len(decParams) != len(calleeParams), fmt.Sprintf("ERROR: <%d> : Semantic: Expected %d args in call to %s, got %d.",  resolveLineNumber(calleeExp), len(decParams), callee, len(calleeParams)))
 
     //Check param types match
     for i, decNode := range decParams {
@@ -171,20 +198,20 @@ func areLegalArguments(c *Context, decParams []Node, calleeParams []Node, callee
 
 //Function checks if any fields have been redclared for an id
 func fieldHasNotBeenUsed (id string , declaredFields []string) {
-    for _, fieldDecId := range declaredFields {
-        performCheck(id != fieldDecId, fmt.Sprintf("%s already declared!", id))
+    for fd, fieldDecId := range declaredFields {
+        performCheck(id != fieldDecId, fmt.Sprintf("ERROR: <%d> : Semantic : %s already declared!", resolveLineNumber(fd), id))
     }
 }
 
 //NOTE: All failures halt the program.
 func isRecordType(t interface{}) {
     _, ok := t.(*RecordType)
-    performCheck(ok, fmt.Sprintf("%T is not a record type\n", t))
+    performCheck(ok, fmt.Sprintf("ERROR: <%d>: Semantic: %T is not a record type\n", resolveLineNumber(t), t))
 }
 
 func isNotNil(t interface{}) {
     _, isNil := t.(*Nil)
-    performCheck(!isNil, fmt.Sprintf("%T cannot be nil.", t))
+    performCheck(!isNil, fmt.Sprintf("ERROR: <%d>: Semantic: %T cannot be nil.", resolveLineNumber(t), t))
 }
 
 func isAssignable(c *Context, exp interface{}, expType interface{}) {
@@ -206,7 +233,7 @@ func isAssignable(c *Context, exp interface{}, expType interface{}) {
     typesAreEqual := (expTypeStr == expStr)
     fmt.Printf("RecNil:%t typesareequals:%t\n", recNilCheck, typesAreEqual)
     performCheck(recNilCheck || typesAreEqual,
-                 fmt.Sprintf("Expression of typ %s not compatible with type %s.", expStr, expTypeStr))
+                 fmt.Sprintf("ERROR: <%d>: Semantic: Expression of typ %s not compatible with type %s.", resolveLineNumber(exp), expStr, expTypeStr))
     fmt.Println("Was assingable.")
 }
 
