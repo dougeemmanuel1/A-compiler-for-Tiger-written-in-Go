@@ -30,11 +30,11 @@ type StringPrimitive struct {
 
 func (sp *StringPrimitive) getLineno() int { return sp.lineno }
 
-type VoidType struct {
+type UnitType struct {
     lineno     int
 }
 
-func (vt *VoidType) getLineno() int { return vt.lineno }
+func (ut *UnitType) getLineno() int { return ut.lineno }
 
 
 type Integer struct {
@@ -106,11 +106,11 @@ func  (ie *InfixExpression) analyze(c *Context)  {
     ie.rightNode.Exp.analyze(c)
 
     if(isMathematicalOperator(ie.opType)) {
-        fmt.Println("Is math op\n")
+        // fmt.Println("Is math op\n")
         isInteger(c, ie.leftNode.Exp)
         isInteger(c, ie.rightNode.Exp)
     } else if(isComparisonOperator(ie.opType)) {
-        fmt.Println("Is comp op\n")
+        // fmt.Println("Is comp op\n")
         expressionsHaveSameType(c, ie.leftNode.Exp, ie.rightNode.Exp)
         isIntegerOrString(c, ie.leftNode.Exp)
         isIntegerOrString(c, ie.rightNode.Exp)
@@ -297,20 +297,21 @@ func (as *Assignment) visit() string {
 func (as *Assignment) analyze(c *Context)  {
     as.lValue.Exp.analyze(c)
     as.exp.Exp.analyze(c)
-    fmt.Printf("Is exp:%T assignables to expType:%T (BEFORE expansion)\n", as.lValue.Exp, as.exp.Exp)
+    // fmt.Printf("Is exp:%T assignables to expType:%T (BEFORE expansion)\n", as.lValue.Exp, as.exp.Exp)
     isAssignable(c, as.exp.Exp, as.lValue.Exp)
 
     //Checking for assignment to read only Variables here.
     if identifier, isIdentifier := as.lValue.Exp.(*Identifier); isIdentifier {
+        // fmt.Println("Looking up jawn")
         if _, isVariable := c.lookup(identifier.id).(*Variable); isVariable {
             performCheck(true, fmt.Sprintf("Assignment to read only Variable"))
         }
     }
 
     //Check for assignment of nil to non record types
-    if _, isRecType := c.lookup(as.lValue.Exp.getId()).(*RecordType); isRecType {
-        fmt.Println("WAS A REOCRD TYPE POGGERS")
-    }
+    // if _, isRecType := c.lookup(as.lValue.Exp.getId()).(*RecordType); isRecType {
+    //     fmt.Println("WAS A REOCRD TYPE POGGERS")
+    // }
 }
 
 
@@ -546,14 +547,15 @@ func (me *MemberExp) visit() string {
 
 func (me *MemberExp) analyze(c *Context)  {
     me.record.Exp.analyze(c)
-    isRecordType(getType(c, me.record.Exp))
+    // fmt.Println("pre look up")
+    isRecordType(getType(c, c.lookup(getIdForLValue(me.record.Exp))))
 
     //Check if this record type even has a member named <id>
     //+ Dont have to type check since we confirmed its a record type earlier
 
     rt := getType(c, me.record.Exp).(*RecordType)
     if(!rt.definesId(me.id)) {
-        fmt.Fprintf(os.Stderr, "Record does not define %s.\n", me.id)
+        fmt.Fprintf(os.Stderr, "ERROR: %d: Semantic: Record does not define %s.\n", me.getLineno(),me.id)
         os.Exit(3)
     }
 }
@@ -624,7 +626,7 @@ func (v *Variable) analyze(c *Context)  {
     if(v.typeId != "") {//If type id is declared then we know the type from a lookup!
         v.expType = c.lookup(v.typeId)
 
-        fmt.Printf("Type in lookup was %T\n", v.expType)
+        // fmt.Printf("Type in lookup was %T\n", v.expType)
 
         //Check assignable to ?
         isAssignable(c, v.Exp.Exp, v.expType)
@@ -632,7 +634,7 @@ func (v *Variable) analyze(c *Context)  {
         //When type is declared for record, it must match type declared in reccreate
         if rc, isRecordExp := v.Exp.Exp.(*RecordExp); isRecordExp {
             if(rc.id != v.typeId) {
-                fmt.Fprintf(os.Stderr, fmt.Sprintf("Record type %s not compatible with %s.\n", rc.id, v.typeId))
+                fmt.Fprintf(os.Stderr, fmt.Sprintf("ERROR: %d: Semantic: type %s not compatible with %s.\n", v.getLineno(), rc.id, v.typeId))
                 os.Exit(3)
             }
         }
@@ -640,7 +642,7 @@ func (v *Variable) analyze(c *Context)  {
         //When type is declared for array, it must match type declared in ArrayExp
         if ac, isArrayExp := v.Exp.Exp.(*ArrayExp); isArrayExp {
             if(ac.typeId != v.typeId) {
-                fmt.Fprintf(os.Stderr, fmt.Sprintf("Array type %s not compatible with %s.\n", ac.typeId, v.typeId))
+                fmt.Fprintf(os.Stderr, fmt.Sprintf("ERROR: %d: Semantic: Array type %s not compatible with %s.\n", v.getLineno(), ac.typeId, v.typeId))
                 os.Exit(3)
             }
         }
@@ -690,25 +692,26 @@ func (id *Identifier) analyze(c *Context)  {
 
 
 type Subscript struct {
-    lineno     int
     expType    interface{}
     id          string
     expId        *Node
     subscriptExp Node
+    lineno     int
 }
 
-func NewSubscriptExpression(id string, expId *Node, subscriptExp Node) *Subscript {
+func NewSubscriptExpression(id string, expId *Node, subscriptExp Node, lineno int) *Subscript {
     return &Subscript{
         id: id,
         expId: expId,
         subscriptExp: subscriptExp,
+        lineno: lineno,
     }
 }
 
 func(se *Subscript) getLineno() int { return se.lineno }
 func (se *Subscript) getId() string {
     subId := ""
-    if(se.id != "nil") {
+    if(se.id != "") {
         subId = se.id
     } else {
         subId = se.expId.Exp.getId()
@@ -731,24 +734,23 @@ func (se *Subscript) visit() string {
 
 func (se *Subscript) analyze(c *Context)  {
     var arr interface{}
-    if(se.id == "") { //name is defined by expId then
-        if id, isId := se.expId.Exp.(*Identifier); isId {
-            arr = c.lookup(id.id)
-        }
-
-        // sub, isSubscript := se.expId.(*Subscript); isSubscript {
-        //     arr = c.lookup(id.id)
-        // }
-
-        if field, isFieldExp := se.expId.Exp.(*MemberExp); isFieldExp {
-            arr = c.lookup(field.id)
-        }
+    if v, isVar := c.lookup(se.getId()).(*Variable); isVar { //this alwayas returns a variable
+        // fmt.Printf("var cast success %T,\n",v )
+        arr = v.Exp.Exp
     } else {
-        arr = c.lookup(se.id)
+        fmt.Printf("Subscript analyze didnt return var!\n")
+        os.Exit(3)
     }
+
+    // if field, isFieldExp := se.expId.Exp.(*MemberExp); isFieldExp {
+        // arr = c.lookup(field.id)
+    // }
+
+    // fmt.Printf("Passing %T to isarray\n", arr)
     isArray(c, arr)
     se.subscriptExp.analyze(c)
     isInteger(c, se.subscriptExp.Exp)
+    // fmt.Println("finished")
 }
 
 
@@ -853,29 +855,27 @@ func NewRecordExp(id string, fieldCreateNodes []Node, lineno int) *RecordExp {
     }
 }
 
-func (rc *RecordExp) getLineno() int { return rc.lineno }
+func (re *RecordExp) getLineno() int { return re.lineno }
 
 
-func (rc *RecordExp) getId() string { return "" }
+func (re *RecordExp) getId() string { return "" }
 
 
-func (rc *RecordExp) isReadOnly() bool { return false }
+func (re *RecordExp) isReadOnly() bool { return false }
 
-func (rc *RecordExp) visit() string {
-    str := fmt.Sprintf("(recCreate: id:%s fieldCreateNodes:(", rc.id)
-    for _, n := range rc.fieldCreateNodes {
+func (re *RecordExp) visit() string {
+    str := fmt.Sprintf("(recordExp: id:%s fieldCreateNodes:(", re.id)
+    for _, n := range re.fieldCreateNodes {
         str += fmt.Sprintf("%v",n.Exp.visit())
     }
     str += ")\n"
     return str
 }
 
-func (rc *RecordExp) analyze(c *Context)  {
-    recCreate := c.lookup(rc.id)
+func (re *RecordExp) analyze(c *Context)  {
+    recCreate := c.lookup(re.id)
     isRecordType(recCreate)
     // for _, fieldCreate := range rc.fieldCreateNodes {
-
-    // }
 }
 
 
@@ -906,8 +906,9 @@ func (at *ArrayType) visit() string {
 
 
 func (at *ArrayType) analyze(c *Context)  {
+    // fmt.Println("Lookg up "+ at.id)
      at.memberType = c.lookup(at.id)
-     fmt.Printf("Assigning type %T to arraytype\n", at.memberType)
+     // fmt.Printf("Assigning type %T to arraytype\n", at.memberType)
 }
 
 
@@ -941,7 +942,6 @@ func (ae *ArrayExp) visit() string {
 
 func (ae *ArrayExp) analyze(c *Context)  {
     arr := c.lookup(ae.typeId)
-    fmt.Printf("IN AC type iss %T\n",arr)
     isArrayType(c, arr)
     ae.subscriptNode.Exp.analyze(c)
     isInteger(c, ae.subscriptNode.Exp)
@@ -1007,7 +1007,7 @@ func (le *LetExpression) analyze(c *Context)  {
     for _, d := range le.declarationNodes {
         fd, isFuncDec := d.Exp.(*FuncDeclaration)
         if(isFuncDec) { //If its a fimc declaration, add it to the new context
-            fmt.Println("IS A FUNC")
+            // fmt.Println("IS A FUNC")
             fd.analyzeSignature(newContext)
         }
     }
@@ -1086,7 +1086,7 @@ func (itee *IfThenElseExpression) analyze(c *Context)  {
 
     if(itee.elseNode != nil) { // else
         itee.elseNode.analyze(c)
-        if(getType(c, itee.elseNode.Exp) != &VoidType{}) {
+        if(getType(c, itee.elseNode.Exp) != &UnitType{}) {
             expressionsHaveSameType(c, itee.thenNode.Exp, itee.elseNode.Exp)
         } else {
             isVoid(c, itee.elseNode.Exp)
@@ -1177,7 +1177,7 @@ func (fe *ForExpression) analyze(c *Context)  {
         readOnly:   true,
     }
 
-    fmt.Printf("index is %v \n", index)
+    // fmt.Printf("index is %v \n", index)
     bodyContext.add(fe.id, index)
     // bodyContext.lookup(fe.id).(*Identifier).readOnly = true
     fe.body.analyze(bodyContext)

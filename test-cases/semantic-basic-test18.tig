@@ -1,0 +1,6 @@
+/* ERROR: 3: Semantic: type constraint and int value differ */
+let 
+	var a:int := " "
+in
+	a
+end

@@ -1,6 +1,0 @@
-/*
-This is a
-multiline comment
-*/
-
-type someid := array of hello

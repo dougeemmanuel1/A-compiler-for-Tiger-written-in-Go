@@ -1,0 +1,7 @@
+/* ERROR: 2: Semantic: function return type does not match */
+let
+	function g(a:int) : unit = a
+in 
+	g(2)
+end
+

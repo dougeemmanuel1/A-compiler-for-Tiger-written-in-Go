@@ -1,0 +1,13 @@
+/* ERROR: 12: Semantic: comparison of incompatible types */
+
+let
+
+	type arrtype = array of int
+	type rectype = {name:string, id: int}
+
+	var rec : rectype := rectype {name="aname", id=0}
+	var arr : arrtype := arrtype [3] of 0
+
+in
+	if rec <> arr then 3 else 4
+end

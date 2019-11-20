@@ -1,0 +1,3 @@
+/* ERROR: 3: Parser: Syntax error */
+
+type a = array of int

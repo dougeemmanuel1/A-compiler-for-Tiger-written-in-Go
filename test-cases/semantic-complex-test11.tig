@@ -1,0 +1,7 @@
+/* ERROR: 5: Semantic: variable not array */
+let 
+	var d : int :=0
+in
+	d[3]
+end
+

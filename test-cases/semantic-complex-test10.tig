@@ -1,0 +1,9 @@
+/* ERROR: 8: Semantic: type mismatch */
+
+let
+	type rectype = {name:string , id:int}
+	var rec1 : rectype := rectype {name="aname", id=0}
+in
+	rec1.name := "Alice";
+	rec1.id := "Bob"
+end

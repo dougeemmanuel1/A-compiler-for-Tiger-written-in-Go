@@ -1,0 +1,7 @@
+/* ERROR: 6: Semantic: Type error */
+
+let 
+	var a : unit := ()
+in
+	a + 3
+end

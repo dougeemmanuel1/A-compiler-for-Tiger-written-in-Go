@@ -1,0 +1,7 @@
+/* ERROR: 4: Semantic: function name already exists */
+let
+	function g(a:int):int = a
+	function g(a:int):int = a
+in
+	0
+end

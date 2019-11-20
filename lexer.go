@@ -189,7 +189,7 @@ func (g *golex) Lex(lval *yySymType) (tokenType int) {
             //Type assert lexer error to specific error type to inspect
             //error properties
             if inputError, ok := err.(*machines.UnconsumedInput); ok {
-                fmt.Fprintf(os.Stderr, "ERROR: Line %d: Lexer: %v\n", inputError.StartLine, err)
+                fmt.Fprintf(os.Stderr, "ERROR: %d: Lexer: %v\n", inputError.StartLine, err)
             } else {
                 fmt.Fprintf(os.Stderr, "ERROR: Lexer: %v\n", err)
             }
@@ -209,6 +209,6 @@ func (g *golex) Lex(lval *yySymType) (tokenType int) {
 //can do here given the context. The code generated through goyacc  only
 //returns a string
 func (l *golex) Error(message string) {
-	fmt.Fprintf(os.Stderr, "ERROR: Line: %d Parser: %s\n", yylineno, message)
+	fmt.Fprintf(os.Stderr, "ERROR: %d: Parser: %s\n", yylineno, message)
     os.Exit(2)
 }

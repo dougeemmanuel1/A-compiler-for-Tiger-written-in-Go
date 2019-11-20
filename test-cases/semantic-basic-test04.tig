@@ -1,0 +1,3 @@
+/* ERROR: 2: Semantic: high expr is not int */
+for i:=10 to " " do 
+	i := i - 1

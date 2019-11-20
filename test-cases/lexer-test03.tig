@@ -1,0 +1,3 @@
+/* ERROR: 3: Lexer: Unterminated comment */
+
+/* Is this correct?

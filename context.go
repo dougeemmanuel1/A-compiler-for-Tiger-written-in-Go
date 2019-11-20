@@ -42,8 +42,10 @@ func (c *Context) predeclarePrimitives() {
      c.locals["int"] = NewIntegerPrimitive()
      c.locals["string"] = &StringPrimitive{}
      c.locals["nil"] = NewNil(0)
+     c.locals["unit"] = &UnitType{}
+     c.locals["print"] = NewFuncDeclaration("print", []Node{*NewNode("param",nil, NewParam("s", "int", -1))}, "unit", Node{}, -1)
 
-     fmt.Printf("map conmtets %v\n", c.locals)
+     // fmt.Printf("map conmtets %v\n", c.locals)
  }
 
 //Adds a declaration to the current context
@@ -60,19 +62,19 @@ func (c *Context) add(identifier string, declaration interface{}) {
     //
     _, isVar := declaration.(*Variable)
 
-    fmt.Printf("Type in add was %T\n", declaration)
+    // fmt.Printf("Type in add was %T\n", declaration)
     if(isVar){
         //Empty case so we can skip variable declarations in terms of
         //checking over shadowing or redeclares. They can always be
         //over shadowed
     } else if(c.lastDecId != id) {
-        fmt.Println("Allowing overshadow.")
+        // fmt.Println("Allowing overshadow.")
     } else if(hasKey && c.lastDecId == id) {
-        fmt.Printf("lastDecId: %s id:%s\n", c.lastDecId, id)
-        fmt.Fprintf(os.Stderr, "%s cannot overshadow %s without intervening variable declaration.\n", c.lastDecId, id)
+        // fmt.Printf("lastDecId: %s id:%s\n", c.lastDecId, id)
+        fmt.Fprintf(os.Stderr, "ERROR: %d: Semantic: %s already exists in scope. \n", resolveLineNumber(declaration), id)
         os.Exit(3)
     } else if(hasKey) {
-        fmt.Printf("%s already declared in this scope.\n", id)
+        fmt.Fprintf(os.Stderr, "ERROR: %d: Semantic: %s already declared. \n", resolveLineNumber(declaration), id)
         os.Exit(3)
     }
 
@@ -85,7 +87,7 @@ func (c *Context) add(identifier string, declaration interface{}) {
     //     entity = declaration
     // }
 
-    fmt.Printf("Adding Dec: %s type: %T\n", id, declaration)
+    // fmt.Printf("Adding Dec: %s type: %T\n", id, declaration)
     c.locals[id] = declaration
 
     //Allows an intervening variable declaration will allow two "a" types
@@ -94,16 +96,16 @@ func (c *Context) add(identifier string, declaration interface{}) {
 }
 
 func (c *Context) lookup(id string) interface{} {
-    fmt.Printf("Looking up id:%s\n", id)
+    // fmt.Printf("Looking up id:%s\n", id)
     for ; c != nil; c = c.parent {
-        fmt.Printf("Checking for id: %s in %v\n", id, c.locals )
+        // fmt.Printf("Checking for id: %s in %v\n", id, c.locals )
         e, hasKey := c.locals[id]
         if(hasKey) {
             return e
         }
     }
 
-    fmt.Fprintf(os.Stderr, "%s was not declared. \n", id)
+    fmt.Fprintf(os.Stderr, "ERROR: 0: Semantic: %s was not declared.", id)
     os.Exit(3)
 
     //Empty return to satisfy condition code will never each this point

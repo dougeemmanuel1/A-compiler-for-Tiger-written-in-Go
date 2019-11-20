@@ -1,0 +1,8 @@
+/* ERROR: 5: Parser: Syntax error, nil should not be preceded by type-id. */
+let 
+	type rectype = {name:string, id:int}
+
+	var a : rectype := rectype nil
+in
+	a
+end

@@ -1,0 +1,7 @@
+/* ERROR: 4: Semantic: type name already exists in scope */
+let
+	type a = int
+	type a = string
+in
+	0
+end

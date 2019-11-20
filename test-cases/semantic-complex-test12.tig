@@ -1,0 +1,7 @@
+/* ERROR: 4: Semantic: variable not record */
+let 
+	var d : int :=0
+in
+	d.f 
+end
+

@@ -45,7 +45,7 @@ func toInt(s string)  int {
 %type <ast>   subscript fieldExp Dec tyDec varDec
 %type <token> MINUS LPAREN NIL ID INTLIT STRINGLIT LCURLY OR
 %type <token> AND PLUS MINUS STAR FORWARDSLASH DOUBLEARROW RARROW LARROW EQUALS GREATERTHANEQ
-%type <token> LESSTHANEQ BAR COLONEQUALS IF WHILE LET 
+%type <token> LESSTHANEQ BAR COLONEQUALS IF WHILE LET  LBRACKET
 %start Program
 %%
 
@@ -91,8 +91,8 @@ varDec      : VAR ID COLONEQUALS exp { $$ = NewNode("varDec", nil, NewVariable(s
             ;
 
 
-subscript   : lValue LBRACKET exp RBRACKET { $$ = NewNode("subscript", nil, NewSubscriptExpression("", $1, *$3) ) }
-            | ID LBRACKET exp RBRACKET  { $$ =  NewNode("subscript", nil, NewSubscriptExpression(string($1.Lexeme), nil, *$3)) }/*  verbose subscript to force reduce   */
+subscript   : lValue LBRACKET exp RBRACKET { $$ = NewNode("subscript", nil, NewSubscriptExpression("", $1, *$3, $2.StartLine) ) }
+            | ID LBRACKET exp RBRACKET  { $$ =  NewNode("subscript", nil, NewSubscriptExpression(string($1.Lexeme), nil, *$3, $2.StartLine)) }/*  verbose subscript to force reduce   */
             ;
 
 arrExp   : ID LBRACKET exp RBRACKET OF exp { $$ = NewNode("arrExp", nil, NewArrayExp(string($1.Lexeme), *$3, *$6)) }
