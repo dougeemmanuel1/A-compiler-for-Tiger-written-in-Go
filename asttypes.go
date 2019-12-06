@@ -24,11 +24,11 @@ const (
     Op_NEG Op = 12
 )
 
-type StringPrimitive struct {
-    lineno     int
-}
+// type StringPrimitive struct {
+    // lineno     int
+// }
 
-func (sp *StringPrimitive) getLineno() int { return sp.lineno }
+// func (sp *StringPrimitive) getLineno() int { return sp.lineno }
 
 type UnitType struct {
     lineno     int
@@ -106,7 +106,7 @@ func (ie *InfixExpression) visit() string {
 }
 
 func  (ie *InfixExpression) execute(c *Context)  {
-    fmt.Printf("Executing infix exp: \n")
+    // fmt.Printf("Executing infix exp: \n")
 }
 
 func  (ie *InfixExpression) analyze(c *Context)  {
@@ -242,7 +242,7 @@ func (se *SeqExpression) visit() string {
 }
 
 func (se *SeqExpression) execute(c *Context)  {
-    fmt.Println("Executing seq exp")
+    // fmt.Println("Executing seq exp")
     for _, node := range se.nodes {
         node.Exp.execute(c)
     }
@@ -255,38 +255,29 @@ func (se *SeqExpression) analyze(c *Context)  {
 }
 
 
-type StringLiteral struct {
+type StringPrimitive struct {
     expType    interface{}
     str string
     lineno     int
 }
 
-func NewStringLiteral(s string, lineno int) *StringLiteral {
-    return &StringLiteral{
+func NewStringPrimitive(s string, lineno int) *StringPrimitive {
+    return &StringPrimitive{
         str: s,
         lineno: lineno,
     }
 }
 
-func (sl *StringLiteral) getLineno() int { return sl.lineno }
-
-
-func (sl *StringLiteral) getId() string { return "" }
-
-
-func (sl *StringLiteral) isReadOnly() bool { return false }
-
-func (sl *StringLiteral) visit() string {
-    str := fmt.Sprintf("(strlit %s)", sl.str)
+func (sp *StringPrimitive) visit() string {
+    str := fmt.Sprintf("(strPrim %s)", sp.str)
     return str
 }
+func (sp *StringPrimitive) getLineno() int { return sp.lineno }
+func (sp *StringPrimitive) getId() string { return "" }
+func (sp *StringPrimitive) isReadOnly() bool { return false }
 
-func (sl *StringLiteral) execute(c *Context)  {
-
-}
-
-func (sl *StringLiteral) analyze(c *Context)  {
-}
+func (sp *StringPrimitive) execute(c *Context)  {}
+func (sp *StringPrimitive) analyze(c *Context)  {}
 
 
 
@@ -318,20 +309,24 @@ func (as *Assignment) visit() string {
 }
 
 func (as *Assignment) execute(c *Context)  {
-    fmt.Printf("Assignment %s. \n", getIdForLValue(as.lValue.Exp))
+    // fmt.Printf("Assignment %s. \n", getIdForLValue(as.lValue.Exp))
 
     id := getIdForLValue(as.lValue.Exp)
 
     ambiguousVal := evaluateExpression(c, as.exp.Exp)
     // fmt.Printf(" is %v \n", ambiguousVal)
-    if rValueInt, isInt := ambiguousVal.(int); isInt {
-        c.values[id] = rValueInt
-    }  else {
-        rValueString := ambiguousVal.(string)
-        c.values[id] = rValueString
+    switch t := ambiguousVal.(type) {
+    case int:
+        c.values[id] = t
+    case string:
+        c.values[id] = t
+    case *Nil:
+        c.values[id] = t
+    case *UnitType:
+        c.values[id] = t
     }
 
-    fmt.Printf("Assignment %s = %d \n", id, c.values[id])
+    // fmt.Printf("Assignment %s = %v \n", id, c.values[id])
 }
 
 func (as *Assignment) analyze(c *Context)  {
@@ -388,10 +383,10 @@ func (ni *Nil) analyze(c *Context)  {
 
 
 type CallExpression struct {
-    expType    interface{}
-    callee    string
-    paramNodes    []Node
-    lineno     int
+    callee      string
+    paramNodes  []Node
+    lineno      int
+    callDec     *FuncDeclaration
 }
 
 func NewCallExpression(callee string, paramNodes []Node,lineno int) *CallExpression {
@@ -424,16 +419,28 @@ func (ce *CallExpression) visit() string {
 }
 
 func (ce *CallExpression) execute(c *Context)  {
-    fmt.Println("Executing call " + ce.callee)
-
+    //Either execute a biult in function or user defined
     if(ce.callee == "printi") {
-        invokePrintI(ce)
+        invokePrintI(c, ce)
     } else if(ce.callee == "print") {
-        invokePrint(ce)
+        invokePrint(c, ce)
     } else if(ce.callee == "not") {
-        invokeNot(ce)
+        invokeNot(c, ce)
     } else { //Regular other user defined function do your thing!
-
+        // //Get the declaration of the calling function so we can execute it
+        // callDec := c.lookup(ce.callee).(*FuncDeclaration)
+        // ce.callDec = callDec
+        // fmt.Printf("Calling user func %s\n", callDec.id)
+        // if(callDec.returnType == "") {
+        //     //Since no return type, return type is void
+        //     //Just execute the code
+        //     callDec.body.Exp.execute(c)
+        // } else {
+        //     //otherwise evaluate the expression
+        // }
+        callDec := c.lookup(ce.callee).(*FuncDeclaration)
+        // fmt.Printf("Invoking random func \n")
+        evaluateExpression(c, callDec.body.Exp)
     }
 }
 
@@ -493,7 +500,6 @@ func (td *TypeDeclaration) analyze(c *Context)  {
 
 
 type FuncDeclaration struct {
-    expType            interface{}
     id                 string
     returnType         string
     body               Node
@@ -699,12 +705,36 @@ func (v *Variable) visit() string {
 }
 
 func (v *Variable) execute(c *Context)  {
-    fmt.Printf("Executing variable dec: \n")
-    val := getType(c, c.lookup(v.id))
-    fmt.Printf("Assignment %s to type %T.\n", v.id, val)
-    c.values[v.id] = val
-    // val := getType(id)
-    // fmt.Printf("Assigned %s to %v.\n", v.id, val)
+    // fmt.Printf("Executing variable dec: \n")
+    arrayExp, isArrayExp := v.Exp.Exp.(*ArrayExp)
+    if(isArrayExp) {
+        size := evaluateExpression(c, arrayExp.subscriptNode.Exp).(int)
+        fill := evaluateExpression(c, arrayExp.expNode.Exp)
+        arrType, _ := getType(c, c.lookup(arrayExp.typeId)).(*Identifier)
+        _, isInteger := getType(c, c.lookup(arrayExp.typeId)).(*Integer)
+        // fmt.Printf("size: %v Fill: %v type %T val%v \n", size, fill, arrType, arrType)
+
+        if(isInteger || arrType.id == "int") {
+            slc := []int{}
+            for i := 0; i < size; i++ {
+                slc = append(slc, fill.(int))
+            }
+            c.values[v.id] = slc
+        } else if(arrType.id == "string") {
+            slc := []string{}
+            for i := 0; i < size; i++ {
+                slc = append(slc, fill.(string))
+            }
+            c.values[v.id] = slc
+        }
+        // fmt.Printf("Assignment %s to type %T. val: %v\n", v.id, c.values[v.id], c.values[v.id])
+    } else {
+        val := evaluateExpression(c, v.Exp.Exp)
+        // fmt.Printf("Assignment %s to type %T. val: %v\n", v.id, val, val)
+        c.values[v.id] = val
+        // val := getType(id)
+        // fmt.Printf("Assigned %s to %v.\n", v.id, val)
+    }
 }
 
 func (v *Variable) analyze(c *Context)  {
@@ -1019,11 +1049,10 @@ func (at *ArrayType) analyze(c *Context)  {
 
 
 type ArrayExp struct {
-    lineno     int
-    expType         interface{}
     typeId          string
     subscriptNode   Node
     expNode         Node
+    lineno     int
 }
 
 func NewArrayExp(typeIdentifier string, subscriptNode Node, expNode Node) *ArrayExp {
@@ -1047,7 +1076,6 @@ func (ae *ArrayExp) visit() string {
 }
 
 func (ae *ArrayExp) execute(c *Context)  {
-
 }
 
 func (ae *ArrayExp) analyze(c *Context)  {
@@ -1097,23 +1125,24 @@ func (le *LetExpression) visit() string {
 }
 
 func (le *LetExpression) execute(c *Context)  {
-    // str := fmt.Sprintf("(letExp: decs:(")
-    fmt.Printf("Executing let declarations:\n")
+    // fmt.Printf("Executing let declarations:\n")
     for _, d := range le.decs {
         d.Exp.execute(c)
     }
 
-    fmt.Printf("Executing let expressions:\n")
+    // fmt.Printf("Executing let expressions:\n")
     for _, e := range le.exps {
-        e.Exp.execute(c)
+        // fmt.Printf("executing %T \n", getType(c, e.Exp))
+        //Skip array sole array expressions
+        if _, isArrayExp := getType(c, e.Exp).(*ArrayType); isArrayExp {
+            // fmt.Println("Skipping array exp")
+            continue
+        } else {
+            // fmt.Printf("Evaluating %v \n", e.Exp)
+            evaluateExpression(c, e.Exp)
+        }
+
     }
-    // str += fmt.Sprintf(")\n(exps: ")
-    // for _, n := range le.exps {
-    //     str += fmt.Sprintf("\n %v",n.Exp.visit())
-    // }
-    //
-    // str += "))"
-    // return str
 }
 
 func (le *LetExpression) analyze(c *Context)  {
@@ -1307,11 +1336,11 @@ func (fe *ForExpression) visit() string {
 }
 
 func (fe *ForExpression) execute(c *Context)  {
-    fmt.Printf("Executing for expression:")
+    // fmt.Printf("Executing for expression:")
 
     high := getType(c, fe.high.Exp).(*Integer)
     low := getType(c, fe.low.Exp).(*Integer)
-    fmt.Printf("low: %d high: %d \n", low.Number, high.Number)
+    // fmt.Printf("low: %d high: %d \n", low.Number, high.Number)
 
     //Assign i the value of the low and update it through the loop incase they use it
     c.locals[fe.id] = low.Number

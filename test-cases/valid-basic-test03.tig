@@ -2,7 +2,8 @@
    variables with the same name.  The second one hides the first.  */
 let
 	var a : int := 0
-	var a : string := " "
+	var a : string := "some sr"
 in
-	0
+	0;
+    print(a)
 end

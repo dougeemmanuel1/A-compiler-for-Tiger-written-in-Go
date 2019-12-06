@@ -95,7 +95,7 @@ subscript   : lValue LBRACKET exp RBRACKET { $$ = NewNode("subscript", nil, NewS
             | ID LBRACKET exp RBRACKET  { $$ =  NewNode("subscript", nil, NewSubscriptExpression(string($1.Lexeme), nil, *$3, $2.StartLine)) }/*  verbose subscript to force reduce   */
             ;
 
-arrExp   : ID LBRACKET exp RBRACKET OF exp { $$ = NewNode("arrExp", nil, NewArrayExp(string($1.Lexeme), *$3, *$6)) }
+arrExp      : ID LBRACKET exp RBRACKET OF exp { $$ = NewNode("arrExp", nil, NewArrayExp(string($1.Lexeme), *$3, *$6)) }
             ;
 
 lValue      : ID                { $$ = NewNode("ID", $1, NewIdentifier(string($1.Lexeme), $1.StartLine)) }
@@ -119,7 +119,7 @@ exp_list_comma    : /* episoln */     {  $$ = []Node{} }
 
 exp         : NIL               { $$ = NewNode("nil", nil, NewNil($1.StartLine)) }
             | INTLIT            { $$ = NewNode("INTLIT", nil, NewInteger(toInt(string($1.Lexeme)), $1.StartLine)) }
-            | STRINGLIT         { $$ = NewNode("STRINGLIT", nil, NewStringLiteral(string($1.Lexeme), $1.StartLine)) }
+            | STRINGLIT         { $$ = NewNode("STRINGLIT", nil, NewStringPrimitive(string($1.Lexeme), $1.StartLine)) }
             | seqExp            { $$ = $1 }
             | negation          { $$ = $1 }
             | callExp           { $$ = $1 }

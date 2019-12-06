@@ -8,7 +8,7 @@ import (
 func performCheck(cond bool, err string) {
     // fmt.Printf("Cond = %t\n", cond)
     if(!cond) {
-        fmt.Fprintf(os.Stderr, err + "\n")
+        fmt.Fprintf(os.Stderr, err)
         os.Exit(3)
     }
 }
@@ -28,10 +28,10 @@ func getType(c *Context, e interface{}) interface{} {
         expressionType = getType(c, c.lookup(v.id))
     case *Integer:
         expressionType = v
-    case *StringLiteral:
-        expressionType = v
     case *StringPrimitive:
         expressionType = v
+    // case *StringPrimitive:
+        // expressionType = v
     case *Nil:
         expressionType = &Nil{}
     case *UnitType:
@@ -69,7 +69,9 @@ func getType(c *Context, e interface{}) interface{} {
             expressionType = v.exps[len(v.exps)-1].Exp
         } else {
             expressionType = &UnitType{}
-            }
+        }
+    case *ForExpression:
+        expressionType = &UnitType{}
     case *SeqExpression:
         if(len(v.nodes) == 0) {
             expressionType = &UnitType{}
@@ -90,6 +92,8 @@ func getType(c *Context, e interface{}) interface{} {
                 expressionType = &UnitType{}
             }
         }
+    case *Assignment:
+        expressionType = getType(c, c.lookup(getIdForLValue(v.lValue.Exp)))
     default:
         fmt.Fprintf(os.Stderr, "ERROR: %d: Semantic: Type %T was unresolvable. %v \n", resolveLineNumber(e), e, e)
         os.Exit(3)
@@ -104,9 +108,7 @@ func typeToString(t interface{}) (string) {
 
     if _, isInt := t.(*Integer); isInt {
         typeStr = "int"
-    } else if _, isStringP := t.(*StringPrimitive); isStringP {
-        typeStr = "string"
-    } else if _, isStringL := t.(*StringLiteral); isStringL {
+    } else if _, isStringL := t.(*StringPrimitive); isStringL {
         typeStr = "string"
     }  else if _, isVoid := t.(*UnitType); isVoid {
         typeStr = "void"
@@ -147,8 +149,8 @@ func resolveLineNumber(exp interface{}) int {
         case *ArrayExp: lineno = t.getLineno()
         case *Identifier: lineno = t.getLineno()
         case *Integer: lineno = t.getLineno()
-        case *StringLiteral: lineno = t.getLineno()
         case *StringPrimitive: lineno = t.getLineno()
+        // case *StringPrimitive: lineno = t.getLineno()
         case *Nil: lineno = t.getLineno()
         case *Subscript: lineno = t.getLineno()
         case *UnitType: lineno = t.getLineno()
@@ -246,13 +248,15 @@ func isAssignable(c *Context, exp interface{}, expType interface{}) {
     // fmt.Println("Was assingable.")
 }
 
-func expressionsHaveSameType(c *Context, e1 interface{}, e2 interface{}) {
+func expressionsHaveSameType(c *Context, e1 interface{}, e2 interface{}) bool {
     e1TypeAsStr := typeToString(getType(c, e1))
     e2TypeAsStr := typeToString(getType(c, e2))
 
     // fmt.Printf("Excpressions have %s %s.\n", e1TypeAsStr, e2TypeAsStr)
     performCheck(e1TypeAsStr == e2TypeAsStr || (e2TypeAsStr == "nil" && e1TypeAsStr == "recType") || (e2TypeAsStr == "recType" && e1TypeAsStr == "nil"),
                  fmt.Sprintf("ERROR: %d: Semantic: Expressions must have same type, %s not compitable with %s.", resolveLineNumber(e1), e1TypeAsStr, e2TypeAsStr))
+
+    return (e1TypeAsStr == e2TypeAsStr || (e2TypeAsStr == "nil" && e1TypeAsStr == "recType") || (e2TypeAsStr == "recType" && e1TypeAsStr == "nil"))
 }
 
 func isMathematicalOperator(op Op) bool {
@@ -306,37 +310,124 @@ func getIdForLValue(exp interface{}) string {
     return str
 }
 
-//Function theoretically should return either a string or an int or a bool maybe?
+//Function theoretically should return either a string or an int or a bool maybe or void
 //by recursively calling it self and evaluating its expressions
 func evaluateExpression(c *Context, exp interface{}) interface{} {
     var val interface{}
 
     switch t := exp.(type) {
-    case *InfixExpression:
-        fmt.Printf("Evaluating infix expresison %T l: %T, r:%T\n", t,t.leftNode.Exp, t.rightNode.Exp)
-        lVal := evaluateExpression(c, t.leftNode.Exp)
-        rVal :=  evaluateExpression(c, t.rightNode.Exp)
-        val = evaluateInfixExpression(t.opType, lVal, rVal)
-    case *Integer:
-        val = t.Number
-    case *Identifier:
-        // fmt.Printf("Was identifier returning %v\n", c.values[t.id])
-        val = evaluateExpression(c, c.values[t.id])
     case int:
         val = t
+    case *Integer:
+        val = t.Number
+    case *StringPrimitive:
+        val = t.str
+    case string:
+        val = t
+    case []interface{}:
+        val = t
+    case *InfixExpression:
+        // fmt.Printf("Evaluating infix expresison %T l: %T, r:%T\n", t,t.leftNode.Exp, t.rightNode.Exp)
+        //Get the value of the left node and right
+        lVal := evaluateExpression(c, t.leftNode.Exp)
+        rVal :=  evaluateExpression(c, t.rightNode.Exp)
+
+        //then apply the correct infix operator to the values
+        val = evaluateInfixExpression(c, t.opType, lVal, rVal)
+    case *Identifier:
+        // fmt.Printf("Was identifier returning %v\n", t.id)
+        if(t.id == "nil") {
+            val = NewNil(0)
+        } else {
+            val = evaluateExpression(c, c.values[t.id])
+        }
+    case *CallExpression:
+        // fmt.Printf("Evaluation call to %s\n",t.callee)
+
+        //get declaration of call
+        callDec := c.lookup(t.callee).(*FuncDeclaration)
+        if(callDec.returnType == "") { //no rreturn type = unit
+            val = &UnitType{}
+        } else { //Evaluate the expression of the body for a value
+            //This should produce a value and will execute all
+            //of the code of the body as well
+            for i, _ := range callDec.paramNodes {
+                paramDec  := callDec.paramNodes[i].Exp.(*Param)
+                paramValue := t.paramNodes[i].Exp
+                c.values[paramDec.id] = evaluateExpression(c, paramValue)
+            }
+
+        }
+        if(t.callee == "printi") {
+            invokePrintI(c, t)
+        } else if(t.callee == "print") {
+            invokePrint(c, t)
+        } else if(t.callee == "not") {
+            invokeNot(c, t)
+        } else { //Regular other user defined function do your thing!
+            //invoke the body
+            //Get the declaration of the calling function so we can execute it
+            callDec := c.lookup(t.callee).(*FuncDeclaration)
+            // fmt.Printf("Invoking random func \n")
+            evaluateExpression(c, callDec.body.Exp)
+        }
+
+    case *Nil:
+        val = NewNil(0)
+    case *ArrayExp:
+        arrType := getType(c, c.lookup(t.typeId)).(*Identifier)
+        val = c.lookup(arrType.id)
+    case *ForExpression:
+        t.execute(c)
+        val = &UnitType{}
+    case *LetExpression:
+        if(len(t.exps) == 0) {
+            val = &UnitType{}
+        } else {
+            val = evaluateExpression(c, t.exps[len(t.exps)-1].Exp)
+        }
+    case *Assignment:
+        val = &UnitType{}
+    case *RecordExp:
+        var slc []interface{}
+        for _, fcNode := range t.fieldCreateNodes {
+            if b, isABinding := fcNode.Exp.(*Binding); isABinding {
+                slc = append(slc, evaluateExpression(c, b.exp.Exp))
+            }
+        }
+        val = slc
+    default:
+        fmt.Fprintf(os.Stderr, "Could not evaluate exp %T\n", t)
+        os.Exit(4)
     }
 
     return val
 }
 
-func evaluateInfixExpression(opType Op, l interface{}, r interface{}) interface{} {
+func evaluateInfixExpression(c *Context, opType Op, l interface{}, r interface{}) interface{} {
     var result interface{}
-    lValue := l.(int)
-    rValue := r.(int)
+
+    //Must resolve to int for mathemtical operations
+    //in other ops we dont use these two
+    lValue, _ := l.(int)
+    rValue, _ := r.(int)
+
     switch(opType) {
     case Op_PLUS:
         result = lValue + rValue
-        fmt.Printf("infix was plus l:%d r:%d %d\n", lValue, rValue, result)
+        // fmt.Printf("infix was plus l:%d r:%d %d\n", lValue, rValue, result)
+    case Op_MINUS:
+        result = lValue - rValue
+    case Op_MUL:
+        result = lValue * rValue
+    case Op_DIV:
+        result = lValue / rValue
+    case Op_EQUALS:
+        result = expressionsHaveSameType(c, l, r)
+        // fmt.Printf("EQUALS WAS %v\n", result)
+    case Op_NEQ:
+        result = !expressionsHaveSameType(c, l, r)
+        // fmt.Printf("NEQ WAS %v\n", result)
     }
     return result
 }

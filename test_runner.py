@@ -12,6 +12,7 @@ if __name__ == '__main__':
         c = subprocess.run(['./tigerc', 'test-cases/' + f], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         d = {}
         test = c.args[1].split('/')[1]
+        print(test)
         category = None
         if 'lexer' in test:
             category = 'lexer'
