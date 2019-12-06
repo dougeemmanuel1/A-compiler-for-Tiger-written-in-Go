@@ -52,6 +52,9 @@ func main () {
 
     //Begin semantic analysis
     stmts[0].analyze(c)
+
+    //execute
+    // stmts[0].execute(c)
 // }
     os.Exit(0)
 }

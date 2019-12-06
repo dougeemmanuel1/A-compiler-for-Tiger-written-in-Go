@@ -305,3 +305,38 @@ func getIdForLValue(exp interface{}) string {
     }
     return str
 }
+
+//Function theoretically should return either a string or an int or a bool maybe?
+//by recursively calling it self and evaluating its expressions
+func evaluateExpression(c *Context, exp interface{}) interface{} {
+    var val interface{}
+
+    switch t := exp.(type) {
+    case *InfixExpression:
+        fmt.Printf("Evaluating infix expresison %T l: %T, r:%T\n", t,t.leftNode.Exp, t.rightNode.Exp)
+        lVal := evaluateExpression(c, t.leftNode.Exp)
+        rVal :=  evaluateExpression(c, t.rightNode.Exp)
+        val = evaluateInfixExpression(t.opType, lVal, rVal)
+    case *Integer:
+        val = t.Number
+    case *Identifier:
+        // fmt.Printf("Was identifier returning %v\n", c.values[t.id])
+        val = evaluateExpression(c, c.values[t.id])
+    case int:
+        val = t
+    }
+
+    return val
+}
+
+func evaluateInfixExpression(opType Op, l interface{}, r interface{}) interface{} {
+    var result interface{}
+    lValue := l.(int)
+    rValue := r.(int)
+    switch(opType) {
+    case Op_PLUS:
+        result = lValue + rValue
+        fmt.Printf("infix was plus l:%d r:%d %d\n", lValue, rValue, result)
+    }
+    return result
+}

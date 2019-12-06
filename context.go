@@ -10,6 +10,7 @@ type Context struct {
     currentFunction     interface{}
     inLoop              bool
     locals              map[string]interface{}
+    values              map[string]interface{}
     lastDecId           string
 }
 
@@ -19,6 +20,7 @@ func NewContext(parent *Context, currentFunction interface{}, inLoop bool) *Cont
         currentFunction: currentFunction,
         inLoop:          inLoop,
         locals:          make(map[string]interface{}),
+        values:          make(map[string]interface{}),
     }
 }
 
@@ -43,7 +45,9 @@ func (c *Context) predeclarePrimitives() {
      c.locals["string"] = &StringPrimitive{}
      c.locals["nil"] = NewNil(0)
      c.locals["unit"] = &UnitType{}
-     c.locals["print"] = NewFuncDeclaration("print", []Node{*NewNode("param",nil, NewParam("s", "int", -1))}, "unit", Node{}, -1)
+     c.locals["print"] = NewFuncDeclaration("print", []Node{*NewNode("param",nil, NewParam("s", "string", -1))}, "unit", Node{}, -1)
+     c.locals["printi"] = NewFuncDeclaration("printi", []Node{*NewNode("param",nil, NewParam("i", "int", -1))}, "unit", Node{}, -1)
+     c.locals["not"] = NewFuncDeclaration("not", []Node{*NewNode("param",nil, NewParam("i", "int", -1))}, "int", Node{}, -1)
 
      // fmt.Printf("map conmtets %v\n", c.locals)
  }

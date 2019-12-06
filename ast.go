@@ -19,6 +19,7 @@ type Node struct {
 type Visitor interface {
 	visit() string
 	analyze(c *Context)
+	execute(c *Context)
 	isReadOnly() bool
 	getId() string
 	getLineno() int
@@ -37,6 +38,11 @@ func (n *Node) visit() string {
 func (n *Node) analyze(c *Context) {
 	n.Exp.analyze(c)
 }
+
+func (n *Node) execute(c *Context) {
+	n.Exp.execute(c)
+}
+
 
 // NewNode makes a node from a name and a token. The token may be nil.
 func NewNode(name string, token *lexmachine.Token, e Visitor) *Node {
