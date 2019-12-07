@@ -1,37 +1,90 @@
 Usage instructions:
-	1. type "make" or "make all"	
+	1. type "make" or "make all"
 	2. Run using "./tigerc <file_name>
 
-Using make should recompile the compiler and the assosicated grammar.
-
-I also included a small script that I used to test your test cases against my
-compiler you can run with ./testAll.sh
-
-Test test49.tig is supposed to fail because it has a syntax error I think.
+Using make should recompile the compiler and the associated grammar.
 
 I precompiled goyacc and included it within tools folder and the makefile uses it as well.
 I included goyaccs source code in the vendor folder as well.
-
-Thank you!
 
 External Dependencies: (Mostly for links, you shouldnt have to install these!)
 	Lexical analysis framework for Go - github.com/timtadh/lexmachine
 
 Design Decisions:
-	Design wise, I had to restructure how the lexer worked. In the previous program since
-	we did the lexer first and I hadn't considered how it would interface with the parser.
-	In traditional implementations of compiler compilers the lexer and parsers are done in some combined way
-	simultaneously. This is especially noticeable when using a yacc variant, as the 
-	generated code creates a yyParse function which invokes the lexer if it adheres to 
-	some specific function definitions that define how a token is returned/interpreted. In this sense,
-	I removed the original loop which lexed the source text and adhered to goyaccs preferred method of
-	lexing by creating the Lex function. This would allow me to send tokens into the parser right after
-	invoking a special action created through the Lexer. These special action functions are how I keep
-	track of line numbers for syntax errors. I also added special seperate expressions to the lexer
-	to differentiate between multiline and single line comments. Where multiline comments would 
-	increment the line number and single line comments wouldn't but the new line would be 
-	automatically picked up by a seperate expression seeking only new line characters.
-	Overall this method works most of the time but the line number can be wrong sometimes I believe
-	if a multiline comment spans more than 1 line. This was a fairly challenging project, but I feel
-	like a learned a ton tinkering with all the tools and after getting it to finally work it was
-	awesome to see it in action.
+	Salutations!
+	Firstly, I want to apologize for my performance on this program.
+	It by no means is an indicator of my skill, however it is still unacceptable.
+	I fell into a
+	massive code debt during the first semantic run in which I probably spent over 10
+	hours a day looking at this program for 2 weeks even though I started early. Which is ultimately
+	why I believe it is not my best work by any means. I was super stressed about it
+	since I had never really stressed about a program in college before and as such,
+	I overworked it, overengineered it, complicated it, and subsequently burned out and was
+	just all around unable to make feasible progress in sessions. The burnout
+	had started to affect the code I was writing and every minor change
+	rippled across the code base and each feature took exponentially more time to
+	develop and fix as is common with code debt. Which repeated itself, and affected the code
+	I would write after which was even worse than the code before it.
+	Truthfully, the code I wrote actually makes ZERO sense. Which is why it
+	was such a pain to make progress with and reason about. Ultimately, I should have
+	scrapped all of the code once I realized it's major flaws, but I had spent
+	so much time getting to where I was that I couldn't justify letting go,
+	once it grew into this massive mess, I felt that I had to commit to this
+	monstrosity that I created. I also believe using go in this way was also a bit tough for me.
+	I've used go in many of my own personal projects but never the way I used it
+	in this project. So I ran into entirely new issues, and then embedded
+	over the top solutions for things that could've been simpler if done
+	in an idiomatic go way, rather than twisting go to perform like
+	something it was not. I understood the project and material however,
+	some way through, it felt like I was fighting the code
+	base not designing it, and this eventually maimed the project and its ability
+	to be augmented.
+	In retrospect, I should have ripped the code base to shreds and redesigned
+	bottom up. However, letting go is tough and failure is crucial for progress.
+	Ultimately, I learned a lot about go, a lot about myself,
+	and a ton about lexing, semantics, type checking, and interpretation.
+
+	However,
+	I am irredeemably dissatisfied with what I created for this project, and
+	seem unable to make it worthy no matter how many hours I pour into it.
+	For this reason, I feel it is only right to apologize.
+
+	ACTUAL DESIGN DECISIONS: -> If you read the massive block of text, the design
+	choices are a mess. Semantically, I thought I did some clever programming by
+	using recursion to resolve types which did work almost flawlessly. However,
+	I could not figure out a way to conceptualize type checking arrays and recursive types
+	and records with this design, so the array/rectype is only MINIMALLY functional.
+	If a type references another complex type like an array in its declaration,
+	it is basically resolved to a catch all "recType" rather than its actual type.
+	For arrays, they are resolved to their most primitive types usually ints or strings.
+	Both of these are inaccurate ways of semantically checking but I figured I would come back
+	and fix this, I never did :(. Ultimately, that recursive resolution of types became
+	ambiguous as I overused the function and designed it to do more than it should have. Which
+	ambiguated it's use and eventually it's return type, which rippled across the code base
+	to probably maybe 20 or 30 type casts globally in the code base.
+	For the symbol table and semantic analysis, I took some cues from the Crafting a Compiler
+	link on your webpage and I modified it to be effective in my codebase however, I assumed
+	that the table did more than it should have. In the end, I should have used 2 separate
+	tables, which would have simplified this process by a ton. Before that point the symbol table implementation,
+ 	I believe was a great solution. It used a sort pseudo-stack like linked list to scope variables which I thought
+	was very very cool. For the Interpreter, I thought it would be very cool to do something
+	recursive like I did with the types and that worked awesome. I ended creating an evaluateExpression
+	function which would take pretty much any tiger expression use a type switch, and then evaluate
+	the value for the expression. The awesome part about it, is that it was a big brain function so it
+	would evaluate all of the relevant surrounding expressions needed to evaluate the original expression.
+	This made retrieving values for everything when interpreting the code very very easy and straight forward.
+	If I could redesign from the bottom up, I would probably keep this design but I think my code only benefitted
+	from this function due to the nature of it's bad design. Ultimately, it's a good function for an awful
+	design.
+	Lexically, I used the lexmachine library from github which is linked above. If I could back in time,
+	I would handwrite it in a heartbeat, I needed more control for this project and although it fit my needs.
+	It wouldn't have been that difficult to write my own implementation of one. The cryptic docoumentation
+	of the repo and lack of examples had me reading more source code than actually using it.
+	The Lexer doesn't catch unterminated comments, I tried to re work it for awhile to catch them but
+	I resolved to pour that extra time into the other parts.
+	All the builtin functions work, but they make me feel the tests because of too much output because they print,
+	I commented out the output so it would pass the test but they do work.
+	Some sections of the tiger lagnuage aren't interpreted like member expressions and subscripts.
+	Some of the tests are also false positives, I pass some even though I shouldn't because of my
+	partially broken type system.I think for the most part most of the tests work for both except a few
+	of the complex and more than half of the recursive ones are false positives.

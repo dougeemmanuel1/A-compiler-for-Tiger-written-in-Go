@@ -419,29 +419,29 @@ func (ce *CallExpression) visit() string {
 }
 
 func (ce *CallExpression) execute(c *Context)  {
-    //Either execute a biult in function or user defined
-    if(ce.callee == "printi") {
-        invokePrintI(c, ce)
-    } else if(ce.callee == "print") {
-        invokePrint(c, ce)
-    } else if(ce.callee == "not") {
-        invokeNot(c, ce)
-    } else { //Regular other user defined function do your thing!
-        // //Get the declaration of the calling function so we can execute it
-        // callDec := c.lookup(ce.callee).(*FuncDeclaration)
-        // ce.callDec = callDec
-        // fmt.Printf("Calling user func %s\n", callDec.id)
-        // if(callDec.returnType == "") {
-        //     //Since no return type, return type is void
-        //     //Just execute the code
-        //     callDec.body.Exp.execute(c)
-        // } else {
-        //     //otherwise evaluate the expression
-        // }
-        callDec := c.lookup(ce.callee).(*FuncDeclaration)
-        // fmt.Printf("Invoking random func \n")
-        evaluateExpression(c, callDec.body.Exp)
-    }
+    // //Either execute a biult in function or user defined
+    // if(ce.callee == "printi") {
+    //     invokePrintI(c, ce)
+    // } else if(ce.callee == "print") {
+    //     invokePrint(c, ce)
+    // } else if(ce.callee == "not") {
+    //     invokeNot(c, ce)
+    // } else { //Regular other user defined function do your thing!
+    //     // //Get the declaration of the calling function so we can execute it
+    //     // callDec := c.lookup(ce.callee).(*FuncDeclaration)
+    //     // ce.callDec = callDec
+    //     // fmt.Printf("Calling user func %s\n", callDec.id)
+    //     // if(callDec.returnType == "") {
+    //     //     //Since no return type, return type is void
+    //     //     //Just execute the code
+    //     //     callDec.body.Exp.execute(c)
+    //     // } else {
+    //     //     //otherwise evaluate the expression
+    //     // }
+    //     callDec := c.lookup(ce.callee).(*FuncDeclaration)
+    //     // fmt.Printf("Invoking random func \n")
+    //     evaluateExpression(c, callDec.body.Exp)
+    // }
 }
 
 func (ce *CallExpression) analyze(c *Context)  {
@@ -1138,7 +1138,6 @@ func (le *LetExpression) execute(c *Context)  {
             // fmt.Println("Skipping array exp")
             continue
         } else {
-            // fmt.Printf("Evaluating %v \n", e.Exp)
             evaluateExpression(c, e.Exp)
         }
 
@@ -1345,7 +1344,7 @@ func (fe *ForExpression) execute(c *Context)  {
     //Assign i the value of the low and update it through the loop incase they use it
     c.locals[fe.id] = low.Number
     for i := low.Number; i < high.Number; i++{
-        fe.body.execute(c)
+        fe.body.Exp.execute(c)
         c.locals[fe.id] = i
     }
 }

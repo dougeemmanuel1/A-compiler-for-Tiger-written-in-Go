@@ -315,8 +315,10 @@ func getIdForLValue(exp interface{}) string {
 func evaluateExpression(c *Context, exp interface{}) interface{} {
     var val interface{}
 
+    // fmt.Printf("Evaluating type %T, \n", exp)
     switch t := exp.(type) {
     case int:
+        // fmt.Printf("Returning int %d\n", t)
         val = t
     case *Integer:
         val = t.Number
@@ -332,13 +334,16 @@ func evaluateExpression(c *Context, exp interface{}) interface{} {
         lVal := evaluateExpression(c, t.leftNode.Exp)
         rVal :=  evaluateExpression(c, t.rightNode.Exp)
 
+
         //then apply the correct infix operator to the values
         val = evaluateInfixExpression(c, t.opType, lVal, rVal)
+
     case *Identifier:
         // fmt.Printf("Was identifier returning %v\n", t.id)
         if(t.id == "nil") {
             val = NewNil(0)
         } else {
+            // fmt.Printf("Posssible indeitEifer %T\n", c.values[t.id])
             val = evaluateExpression(c, c.values[t.id])
         }
     case *CallExpression:
@@ -355,9 +360,11 @@ func evaluateExpression(c *Context, exp interface{}) interface{} {
                 paramDec  := callDec.paramNodes[i].Exp.(*Param)
                 paramValue := t.paramNodes[i].Exp
                 c.values[paramDec.id] = evaluateExpression(c, paramValue)
+                val = c.values[paramDec.id]
             }
 
         }
+
         if(t.callee == "printi") {
             invokePrintI(c, t)
         } else if(t.callee == "print") {
@@ -371,20 +378,43 @@ func evaluateExpression(c *Context, exp interface{}) interface{} {
             // fmt.Printf("Invoking random func \n")
             evaluateExpression(c, callDec.body.Exp)
         }
-
+    case *IfThenElseExpression:
+        condition := evaluateExpression(c, t.condNode.Exp).(bool)
+        // fmt.Printf("Cond was %v \n", condition)
+        //If else is nil then its an IfThen Exp
+        if(t.elseNode == nil) {
+            val = &UnitType{}
+            if(condition) { //if the condition is true evaluatie the code inside
+                evaluateExpression(c, t.thenNode.Exp)
+            }
+        } else { //otherwise its and ifThenElse
+            if(condition) {
+                val = evaluateExpression(c, t.thenNode.Exp)
+            } else {
+                val = evaluateExpression(c, t.elseNode.Exp)
+            }
+        }
+    case *SeqExpression:
+        // Value is equivalent to the last node of the seqence expression
+        if(len(t.nodes) == 0) {
+            val = &UnitType{}
+        } else {
+            // fmt.Printf("Seq type was %T\n", t.nodes[len(t.nodes)-1].Exp)
+            val = evaluateExpression(c, t.nodes[len(t.nodes)-1].Exp)
+        }
     case *Nil:
         val = NewNil(0)
     case *ArrayExp:
         arrType := getType(c, c.lookup(t.typeId)).(*Identifier)
         val = c.lookup(arrType.id)
     case *ForExpression:
-        t.execute(c)
         val = &UnitType{}
     case *LetExpression:
         if(len(t.exps) == 0) {
             val = &UnitType{}
         } else {
-            val = evaluateExpression(c, t.exps[len(t.exps)-1].Exp)
+            // fmt.Printf("%T is last exp type\n", t.exps[len(t.exps)-1].Exp)
+            // val = getType(c, t.exps[len(t.exps)-1].Exp)
         }
     case *Assignment:
         val = &UnitType{}
@@ -422,6 +452,14 @@ func evaluateInfixExpression(c *Context, opType Op, l interface{}, r interface{}
         result = lValue * rValue
     case Op_DIV:
         result = lValue / rValue
+    case Op_LT:
+        result = lValue < rValue
+    case Op_LTE:
+        result = lValue <= rValue
+    case Op_GT:
+        result = lValue > rValue
+    case Op_GTE:
+        result = lValue <= rValue
     case Op_EQUALS:
         result = expressionsHaveSameType(c, l, r)
         // fmt.Printf("EQUALS WAS %v\n", result)

@@ -52,7 +52,7 @@ func main () {
 
     //Begin semantic analysis
     stmts[0].analyze(c)
-
+    evaluateExpression(c, stmts[0].Exp)
     //execute
     // stmts[0].execute(c)
 // }

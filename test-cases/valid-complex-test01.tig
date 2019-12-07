@@ -4,5 +4,5 @@ let
 
 	function g(a:int):int = a
 in
- g(2)
+ printi(g(2))
 end
