@@ -1,6 +1,10 @@
 Usage instructions:
 	1. type "make" or "make all"
 	2. Run using "./tigerc <file_name>
+	
+	OR
+	1. type "make"
+	2. python test_runner.py #to run the entire test suite and give categorized output
 
 Using make should recompile the compiler and the associated grammar.
 
