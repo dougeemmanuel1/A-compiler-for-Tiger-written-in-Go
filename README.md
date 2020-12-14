@@ -20,4 +20,4 @@ and a ton about lexing, semantics, type checking, and interpretation.
 
 The Lexer doesn't catch unterminated comments, I tried to re work it for awhile to catch them but
 
-All in all 10/10 learning experience, I'm much better at Go and made a compiler, pogchamp.
+All in all 10/10 learning experience, I'm much better at Go and made (although not fully featured) compiler, pogchamp.
